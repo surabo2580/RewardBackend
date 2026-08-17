@@ -6,8 +6,7 @@ import org.springframework.context.annotation.ComponentScan
 
 @SpringBootApplication
 @ComponentScan(basePackages = [
-    "com.reward.platform",
-    "com.smartReward.backend"
+    "com.reward.platform"
 ])
 class RewardApiApplication
 

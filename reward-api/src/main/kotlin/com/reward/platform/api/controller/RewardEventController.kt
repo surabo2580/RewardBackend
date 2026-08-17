@@ -1,38 +1,34 @@
 package com.reward.platform.api.controller
 
+import com.reward.platform.api.dto.RewardEventRequest
+import com.reward.platform.api.dto.RewardEventResponse
+import com.reward.platform.api.entity.AccountEntity
+import com.reward.platform.api.entity.TransactionEntity
+import com.reward.platform.api.entity.WalletHistoryEntity
 import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.MemberRepository
-import com.reward.platform.api.entity.AccountEntity
+import com.reward.platform.api.repository.TransactionRepository
+import com.reward.platform.api.repository.WalletHistoryRepository
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
-
-data class RewardEventRequest(
-    val tenantId: String = "",
-    val memberId: String = "",
-    val eventType: String = "PURCHASE",
-    val amount: Long = 0,
-    val referenceId: String? = null
-)
-
-data class RewardEventResponse(
-    val success: Boolean = true,
-    val pointsAwarded: Long = 0,
-    val message: String = ""
-)
+import java.util.UUID
 
 @RestController
 @RequestMapping("/api")
 class RewardEventController(
     private val accountRepository: AccountRepository,
-    private val memberRepository: MemberRepository
+    private val memberRepository: MemberRepository,
+    private val transactionRepository: TransactionRepository,
+    private val walletHistoryRepository: WalletHistoryRepository
 ) {
 
     @PostMapping("/events")
-    fun processEvent(@RequestBody request: RewardEventRequest): ResponseEntity<RewardEventResponse> {
+    fun processEvent(@Valid @RequestBody request: RewardEventRequest): ResponseEntity<RewardEventResponse> {
         val member = memberRepository.findByTenantIdAndExternalUserId(request.tenantId, request.memberId)
             ?: return ResponseEntity.badRequest().body(
                 RewardEventResponse(success = false, pointsAwarded = 0, message = "Member not found")
@@ -65,6 +61,33 @@ class RewardEventController(
             updatedAt = Instant.now()
         )
         accountRepository.save(updatedAccount)
+
+        val transaction = TransactionEntity(
+            id = UUID.randomUUID().toString(),
+            tenantId = request.tenantId,
+            memberId = member.id,
+            accountId = updatedAccount.id,
+            eventType = request.eventType,
+            transactionType = "EARN",
+            amount = request.amount,
+            points = pointsAwarded,
+            status = "APPROVED",
+            referenceId = request.referenceId,
+            createdAt = Instant.now()
+        )
+        transactionRepository.save(transaction)
+
+        val walletHistory = WalletHistoryEntity(
+            id = UUID.randomUUID().toString(),
+            tenantId = request.tenantId,
+            memberId = member.id,
+            accountId = updatedAccount.id,
+            entryType = "CREDIT",
+            points = pointsAwarded,
+            description = "Awarded for ${request.eventType}",
+            createdAt = Instant.now()
+        )
+        walletHistoryRepository.save(walletHistory)
 
         return ResponseEntity.ok(
             RewardEventResponse(

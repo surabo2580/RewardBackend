@@ -12,8 +12,8 @@ kotlin {
 
 sourceSets {
     main {
-        kotlin.srcDirs("src/main/kotlin", "../src/main/kotlin")
-        resources.srcDirs("../src/main/resources")
+        kotlin.srcDirs("src/main/kotlin")
+        resources.srcDirs("src/main/resources")
     }
 }
 
@@ -27,6 +27,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.postgresql:postgresql")
     implementation("com.h2database:h2")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
