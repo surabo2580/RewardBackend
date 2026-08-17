@@ -1,37 +1,27 @@
 package com.smartReward.backend.ruleengine
 
 import com.smartReward.backend.dto.EventRequest
-import com.smartReward.backend.repository.RewardRuleRepository
+import com.smartReward.backend.model.RewardRule
 import org.springframework.stereotype.Component
 
 @Component
-class RuleEngine(
-    private val rewardRuleRepository: RewardRuleRepository
-) {
+class RuleEngine {
 
-    fun evaluate(event: EventRequest): Int {
-        val rules = rewardRuleRepository
-            .findByEventTypeAndBusinessId(event.event, event.businessId)
-
-        var totalPoints = 0
-
-        for (rule in rules) {
-
-            val amount = (event.properties["amount"] as? Number)?.toDouble() ?: 0.0
-
-            // Condition check
-            if (rule.minAmount != null && amount < rule.minAmount!!) continue
-
-            // Reward calculation
-            val points = when (rule.rewardType) {
-                "FLAT" -> rule.rewardValue.toInt()
-                "PERCENTAGE" -> (amount * rule.rewardValue / 100).toInt()
-                else -> 0
+    fun evaluateRules(rules: List<RewardRule>, event: EventRequest): Int {
+        return rules
+            .filter { it.isActive }
+            .filter { rule -> 
+                val min = rule.minAmount
+                min == null || event.amount >= min 
             }
+            .sumOf { calculateReward(it, event) }
+    }
 
-            totalPoints += points
+    private fun calculateReward(rule: RewardRule, event: EventRequest): Int {
+        return when (rule.rewardType.uppercase()) {
+            "PERCENTAGE" -> ((event.amount * rule.rewardValue) / 100.0).toInt()
+            "FLAT" -> rule.rewardValue.toInt()
+            else -> 0
         }
-
-        return totalPoints
     }
 }
