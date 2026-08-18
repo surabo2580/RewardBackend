@@ -11,6 +11,7 @@ import com.reward.platform.api.repository.TransactionRepository
 import com.reward.platform.api.repository.WalletHistoryRepository
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 import java.util.UUID
 
+@CrossOrigin(origins = ["*"])
 @RestController
 @RequestMapping("/api")
 class RewardEventController(
@@ -50,7 +52,7 @@ class RewardEventController(
         )
 
         val pointsAwarded = when (request.eventType.uppercase()) {
-            "PURCHASE" -> request.amount / 10
+            "PURCHASE" -> if (request.amount > 0) request.amount / 10 else 10
             "SIGNUP" -> 100
             "REFERRAL" -> 250
             else -> 0
