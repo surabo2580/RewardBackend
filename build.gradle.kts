@@ -14,3 +14,9 @@ allprojects {
         mavenCentral()
     }
 }
+
+subprojects {
+    tasks.withType<ProcessResources>().configureEach {
+        duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
+    }
+}

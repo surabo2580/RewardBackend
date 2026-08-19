@@ -1,8 +1,18 @@
 spring:
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:postgres}
   main:
     allow-bean-definition-overriding: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:reward_db}
+    username: ${POSTGRES_USER:surajdas}
+    password: ${POSTGRES_PASSWORD:surajdas}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
 
 server:
   port: 8080
@@ -23,24 +33,6 @@ spring:
       path: /h2-console
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-
----
-spring:
-  config:
-    activate:
-      on-profile: postgres
-  datasource:
-    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:reward_db}
-    username: ${POSTGRES_USER:surajdas}
-    password: ${POSTGRES_PASSWORD:}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
     properties:
