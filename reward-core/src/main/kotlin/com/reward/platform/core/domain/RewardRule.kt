@@ -6,6 +6,7 @@ import java.time.Instant
 data class RewardRule(
     val id: String,
     val tenantId: String,
+    val branchId: String? = null,
     val programId: String,
     val name: String,
     val eventType: String,

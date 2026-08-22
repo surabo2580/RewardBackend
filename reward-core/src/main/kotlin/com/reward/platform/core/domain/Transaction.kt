@@ -5,6 +5,7 @@ import java.time.Instant
 data class Transaction(
     val id: String,
     val tenantId: String,
+    val branchId: String? = null,
     val memberId: String,
     val programId: String,
     val type: TransactionType,

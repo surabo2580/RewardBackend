@@ -15,6 +15,8 @@ data class TransactionEntity(
     @Column(nullable = false)
     val tenantId: String = "",
 
+    val branchId: String? = null,
+
     @Column(nullable = false)
     val memberId: String = "",
 

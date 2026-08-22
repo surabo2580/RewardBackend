@@ -4,11 +4,12 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.math.BigDecimal
 import java.time.Instant
 
 @Entity
-@Table(name = "reward_wallet_history")
-data class WalletHistoryEntity(
+@Table(name = "reward_branch_rules")
+data class BranchRuleEntity(
     @Id
     val id: String = "",
 
@@ -16,20 +17,24 @@ data class WalletHistoryEntity(
     val tenantId: String = "",
 
     val branchId: String? = null,
+    val programId: String? = null,
 
     @Column(nullable = false)
-    val memberId: String = "",
+    val name: String = "",
 
     @Column(nullable = false)
-    val accountId: String = "",
+    val eventType: String = "PURCHASE",
+
+    val minAmount: BigDecimal? = null,
 
     @Column(nullable = false)
-    val entryType: String = "CREDIT",
+    val rewardType: String = "FLAT",
 
     @Column(nullable = false)
-    val points: Long = 0,
+    val rewardValue: BigDecimal = BigDecimal.ZERO,
 
-    val description: String? = null,
+    @Column(nullable = false)
+    val isActive: Boolean = true,
 
     @Column(nullable = false)
     val createdAt: Instant = Instant.now()

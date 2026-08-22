@@ -7,29 +7,26 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 @Entity
-@Table(name = "reward_wallet_history")
-data class WalletHistoryEntity(
+@Table(name = "reward_branches")
+data class BranchEntity(
     @Id
     val id: String = "",
 
     @Column(nullable = false)
     val tenantId: String = "",
 
-    val branchId: String? = null,
+    val parentBranchId: String? = null,
+
+    @Column(nullable = false, unique = true)
+    val code: String = "",
 
     @Column(nullable = false)
-    val memberId: String = "",
+    val name: String = "",
+
+    val city: String? = null,
 
     @Column(nullable = false)
-    val accountId: String = "",
-
-    @Column(nullable = false)
-    val entryType: String = "CREDIT",
-
-    @Column(nullable = false)
-    val points: Long = 0,
-
-    val description: String? = null,
+    val status: String = "ACTIVE",
 
     @Column(nullable = false)
     val createdAt: Instant = Instant.now()

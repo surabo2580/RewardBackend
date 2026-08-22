@@ -7,6 +7,8 @@ data class RewardEventRequest(
     @field:NotBlank(message = "Tenant id is required")
     val tenantId: String = "",
 
+    val branchCode: String? = null,
+
     @field:NotBlank(message = "Member id is required")
     val memberId: String = "",
 
