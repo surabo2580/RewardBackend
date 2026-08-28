@@ -6,11 +6,13 @@ import java.math.BigDecimal
 import java.time.Instant
 
 data class BranchRuleCreateRequest(
-    @field:NotBlank(message = "Tenant id is required")
-    val tenantId: String = "",
+    val tenantId: Long = 0,
 
-    val branchId: String? = null,
-    val programId: String? = null,
+    val branchId: Long? = null,
+    val programId: Long = 0,
+    val sponsorId: Long? = null,
+    val locationId: Long? = null,
+    val scope: String = "PROGRAM",
 
     @field:NotBlank(message = "Rule name is required")
     val name: String = "",
@@ -24,20 +26,25 @@ data class BranchRuleCreateRequest(
     val rewardType: String = "FLAT",
 
     val rewardValue: BigDecimal = BigDecimal.ZERO,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val priority: Int = 0
 )
 
 data class BranchRuleResponse(
-    val id: String,
-    val tenantId: String,
-    val branchId: String?,
-    val programId: String?,
+    val id: Long,
+    val tenantId: Long,
+    val branchId: Long?,
+    val programId: Long?,
+    val sponsorId: Long?,
+    val locationId: Long?,
+    val scope: String,
     val name: String,
     val eventType: String,
     val minAmount: BigDecimal?,
     val rewardType: String,
     val rewardValue: BigDecimal,
     val isActive: Boolean,
+    val priority: Int,
     val createdAt: Instant
 ) {
     companion object {
@@ -46,12 +53,16 @@ data class BranchRuleResponse(
             tenantId = entity.tenantId,
             branchId = entity.branchId,
             programId = entity.programId,
+            sponsorId = entity.sponsorId,
+            locationId = entity.locationId,
+            scope = entity.scope,
             name = entity.name,
             eventType = entity.eventType,
             minAmount = entity.minAmount,
             rewardType = entity.rewardType,
             rewardValue = entity.rewardValue,
             isActive = entity.isActive,
+            priority = entity.priority,
             createdAt = entity.createdAt
         )
     }

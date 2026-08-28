@@ -3,7 +3,7 @@ package com.reward.platform.api.repository
 import com.reward.platform.api.entity.TransactionEntity
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface TransactionRepository : JpaRepository<TransactionEntity, String> {
-    fun findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId: String, memberId: String): List<TransactionEntity>
-    fun findByTenantIdAndBranchIdOrderByCreatedAtDesc(tenantId: String, branchId: String): List<TransactionEntity>
+interface TransactionRepository : JpaRepository<TransactionEntity, Long> {
+    fun findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId: Long, memberId: Long): List<TransactionEntity>
+    fun findByTenantIdAndBranchIdOrderByCreatedAtDesc(tenantId: Long, branchId: Long): List<TransactionEntity>
 }

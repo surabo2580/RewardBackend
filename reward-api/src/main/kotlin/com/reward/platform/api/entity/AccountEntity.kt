@@ -4,19 +4,22 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import java.time.Instant
 
 @Entity
 @Table(name = "reward_accounts")
 data class AccountEntity(
     @Id
-    val id: String = "",
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long = 0,
 
     @Column(nullable = false)
-    val tenantId: String = "",
+    val tenantId: Long = 0,
 
     @Column(nullable = false)
-    val memberId: String = "",
+    val memberId: Long = 0,
 
     @Column(nullable = false)
     val accountType: String = "EARN_REDEEM",

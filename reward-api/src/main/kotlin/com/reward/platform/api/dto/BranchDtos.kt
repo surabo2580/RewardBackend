@@ -5,10 +5,9 @@ import jakarta.validation.constraints.NotBlank
 import java.time.Instant
 
 data class BranchCreateRequest(
-    @field:NotBlank(message = "Tenant id is required")
-    val tenantId: String = "",
+    val tenantId: Long = 0,
 
-    val parentBranchId: String? = null,
+    val parentBranchId: Long? = null,
 
     @field:NotBlank(message = "Branch code is required")
     val code: String = "",
@@ -21,9 +20,9 @@ data class BranchCreateRequest(
 )
 
 data class BranchResponse(
-    val id: String,
-    val tenantId: String,
-    val parentBranchId: String?,
+    val id: Long,
+    val tenantId: Long,
+    val parentBranchId: Long?,
     val code: String,
     val name: String,
     val city: String?,

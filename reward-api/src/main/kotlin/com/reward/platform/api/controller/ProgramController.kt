@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @CrossOrigin(origins = ["*"])
 @RestController
@@ -25,7 +24,7 @@ class ProgramController(
     @PostMapping
     fun createProgram(@Valid @RequestBody request: ProgramCreateRequest): ResponseEntity<ProgramResponse> {
         val entity = ProgramEntity(
-            id = UUID.randomUUID().toString(),
+            id = 0,
             tenantId = request.tenantId,
             name = request.name,
             currency = request.currency,
@@ -38,7 +37,7 @@ class ProgramController(
     }
 
     @GetMapping("/{tenantId}")
-    fun getProgramsByTenant(@PathVariable tenantId: String): ResponseEntity<List<ProgramResponse>> {
+    fun getProgramsByTenant(@PathVariable tenantId: Long): ResponseEntity<List<ProgramResponse>> {
         return ResponseEntity.ok(
             programRepository.findAll()
                 .filter { it.tenantId == tenantId }

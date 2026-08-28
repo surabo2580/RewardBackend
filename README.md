@@ -137,7 +137,7 @@ curl -X POST http://localhost:8080/api/provisioning/tenants \
 	}'
 ```
 
-The default URL is `https://indianhotel.indie-state.local`; set
+The default URL is `https://indhotel.benevo.io`; set
 `PLATFORM_BASE_DOMAIN` for your deployed domain. `schemaName` is stored as a
 tenant namespace while the current implementation uses shared PostgreSQL
 tables with tenant IDs, which avoids one physical table set per business and

@@ -5,8 +5,7 @@ import jakarta.validation.constraints.NotBlank
 import java.time.Instant
 
 data class MemberCreateRequest(
-    @field:NotBlank(message = "Tenant id is required")
-    val tenantId: String = "",
+    val tenantId: Long = 0,
 
     @field:NotBlank(message = "External user id is required")
     val externalUserId: String = "",
@@ -16,8 +15,8 @@ data class MemberCreateRequest(
 )
 
 data class MemberResponse(
-    val id: String,
-    val tenantId: String,
+    val id: Long,
+    val tenantId: Long,
     val externalUserId: String,
     val email: String?,
     val tier: String,

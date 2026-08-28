@@ -4,6 +4,9 @@ import com.reward.platform.api.dto.BranchRuleCreateRequest
 import com.reward.platform.api.dto.BranchRuleResponse
 import com.reward.platform.api.entity.BranchRuleEntity
 import com.reward.platform.api.repository.BranchRuleRepository
+import com.reward.platform.api.repository.ProgramRepository
+import com.reward.platform.api.repository.SponsorRepository
+import com.reward.platform.api.repository.SponsorLocationRepository
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
@@ -12,41 +15,70 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @CrossOrigin(origins = ["*"])
 @RestController
 @RequestMapping("/api/rules")
 class BranchRuleController(
-    private val branchRuleRepository: BranchRuleRepository
+    private val branchRuleRepository: BranchRuleRepository,
+    private val programRepository: ProgramRepository,
+    private val sponsorRepository: SponsorRepository,
+    private val locationRepository: SponsorLocationRepository
 ) {
 
     @PostMapping
-    fun createRule(@Valid @RequestBody request: BranchRuleCreateRequest): ResponseEntity<BranchRuleResponse> {
+    fun createRule(
+        @RequestAttribute("tenantId") tenantId: Long,
+        @Valid @RequestBody request: BranchRuleCreateRequest
+    ): ResponseEntity<BranchRuleResponse> {
+        require(request.tenantId == tenantId) { "Tenant does not match API key" }
+        val scope = request.scope.uppercase()
+        require(scope in setOf("PROGRAM", "SPONSOR", "LOCATION")) { "Rule scope must be PROGRAM, SPONSOR, or LOCATION" }
+        require(programRepository.findById(request.programId).orElse(null)?.tenantId == request.tenantId) {
+            "Program does not belong to tenant"
+        }
+        if (scope == "SPONSOR" || scope == "LOCATION") {
+            val sponsor = request.sponsorId?.let { sponsorRepository.findById(it).orElse(null) }
+            require(sponsor != null && sponsor.tenantId == request.tenantId && sponsor.programId == request.programId) {
+                "Sponsor does not belong to tenant and program"
+            }
+        }
+        if (scope == "LOCATION") {
+            val location = request.locationId?.let { locationRepository.findById(it).orElse(null) }
+            require(location != null && location.tenantId == request.tenantId && location.sponsorId == request.sponsorId) {
+                "Location does not belong to sponsor"
+            }
+        }
         val rule = BranchRuleEntity(
-            id = UUID.randomUUID().toString(),
+            id = 0,
             tenantId = request.tenantId,
             branchId = request.branchId,
             programId = request.programId,
+            sponsorId = request.sponsorId,
+            locationId = request.locationId,
+            scope = scope,
             name = request.name,
             eventType = request.eventType.uppercase(),
             minAmount = request.minAmount,
             rewardType = request.rewardType.uppercase(),
             rewardValue = request.rewardValue,
-            isActive = request.isActive
+            isActive = request.isActive,
+            priority = request.priority
         )
         return ResponseEntity.ok(BranchRuleResponse.from(branchRuleRepository.save(rule)))
     }
 
     @GetMapping
     fun listRules(
-        @RequestParam tenantId: String,
+        @RequestAttribute("tenantId") authenticatedTenantId: Long,
+        @RequestParam tenantId: Long,
         @RequestParam(defaultValue = "PURCHASE") eventType: String
     ): ResponseEntity<List<BranchRuleResponse>> {
-        return ResponseEntity.ok(
-            branchRuleRepository.findByTenantIdAndEventTypeAndIsActiveTrue(tenantId, eventType.uppercase())
-                .map(BranchRuleResponse::from)
-        )
+        require(tenantId == authenticatedTenantId) { "Tenant does not match API key" }
+        return ResponseEntity.ok(branchRuleRepository
+            .findByTenantIdAndEventTypeAndIsActiveTrue(tenantId, eventType.uppercase())
+            .map(BranchRuleResponse::from))
     }
 }

@@ -7,8 +7,7 @@ import java.math.BigDecimal
 import java.time.Instant
 
 data class ProgramCreateRequest(
-    @field:NotBlank(message = "Tenant id is required")
-    val tenantId: String = "",
+    val tenantId: Long = 0,
 
     @field:NotBlank(message = "Program name is required")
     val name: String = "",
@@ -25,8 +24,8 @@ data class ProgramCreateRequest(
 )
 
 data class ProgramResponse(
-    val id: String,
-    val tenantId: String,
+    val id: Long,
+    val tenantId: Long,
     val name: String,
     val currency: String,
     val timezone: String,

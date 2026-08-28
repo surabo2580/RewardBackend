@@ -4,9 +4,13 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 
 data class RewardEventRequest(
-    @field:NotBlank(message = "Tenant id is required")
-    val tenantId: String = "",
+    val tenantId: Long = 0,
 
+    val programId: Long = 0,
+    val sponsorId: Long? = null,
+    val sponsorCode: String? = null,
+    val locationId: Long? = null,
+    val locationCode: String? = null,
     val branchCode: String? = null,
 
     @field:NotBlank(message = "Member id is required")
@@ -18,7 +22,8 @@ data class RewardEventRequest(
     @field:Min(value = 0, message = "Amount must be zero or greater")
     val amount: Long = 0,
 
-    val referenceId: String? = null
+    val referenceId: String? = null,
+    val channel: String = "POS"
 )
 
 data class RewardEventResponse(

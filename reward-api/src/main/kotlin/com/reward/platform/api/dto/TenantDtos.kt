@@ -15,7 +15,7 @@ data class TenantCreateRequest(
 )
 
 data class TenantResponse(
-    val id: String,
+    val id: Long,
     val name: String,
     val slug: String?,
     val baseUrl: String?,

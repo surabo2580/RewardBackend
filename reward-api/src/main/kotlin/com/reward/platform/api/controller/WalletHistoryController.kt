@@ -20,17 +20,13 @@ class WalletHistoryController(
 
     @GetMapping("/wallet-history/{tenantId}/{memberId}")
     fun getWalletHistory(
-        @PathVariable tenantId: String,
+        @PathVariable tenantId: Long,
         @PathVariable memberId: String
     ): ResponseEntity<List<WalletHistoryEntity>> {
         val member = memberRepository.findByTenantIdAndExternalUserId(tenantId, memberId)
-        val lookupId = member?.id ?: memberId
-        val results = walletHistoryRepository.findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId, lookupId)
-        if (results.isNotEmpty()) {
-            return ResponseEntity.ok(results)
-        }
-        return ResponseEntity.ok(
-            walletHistoryRepository.findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId, memberId)
-        )
+        val results = member?.let {
+            walletHistoryRepository.findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId, it.id)
+        } ?: emptyList()
+        return ResponseEntity.ok(results)
     }
 }

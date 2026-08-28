@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.beans.factory.annotation.Value
 import com.reward.platform.api.security.ApiKeyService
@@ -21,13 +20,12 @@ import com.reward.platform.api.security.ApiKeyService
 @RequestMapping("/api/tenants")
 class TenantController(
     private val tenantRepository: TenantRepository,
-    @Value("\${PLATFORM_BASE_DOMAIN:indie-state.local}") private val baseDomain: String
+    @Value("\${PLATFORM_BASE_DOMAIN:benevo.io}") private val baseDomain: String
 ) {
 
     @PostMapping
     fun createTenant(@Valid @RequestBody request: TenantCreateRequest): ResponseEntity<TenantResponse> {
         val entity = TenantEntity(
-            id = UUID.randomUUID().toString(),
             name = request.name,
             slug = request.slug ?: request.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-'),
             baseUrl = "https://${request.slug ?: request.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')}.$baseDomain",

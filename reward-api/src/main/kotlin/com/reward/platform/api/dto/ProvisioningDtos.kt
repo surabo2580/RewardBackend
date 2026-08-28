@@ -40,15 +40,16 @@ data class TenantProvisionRequest(
 data class TenantProvisionResponse(
     val tenant: TenantResponse,
     val program: ProgramResponse,
+    val hostSponsor: SponsorResponse? = null,
     val tiers: List<TierResponse>,
     val apiKey: String,
     val apiKeyHeader: String = "X-API-Key"
 )
 
 data class TierResponse(
-    val id: String,
-    val tenantId: String,
-    val programId: String,
+    val id: Long,
+    val tenantId: Long,
+    val programId: Long,
     val name: String,
     val rank: Int,
     val thresholdPoints: Long,

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @CrossOrigin(origins = ["*"])
 @RestController
@@ -25,7 +24,6 @@ class BranchController(
     @PostMapping
     fun createBranch(@Valid @RequestBody request: BranchCreateRequest): ResponseEntity<BranchResponse> {
         val branch = BranchEntity(
-            id = UUID.randomUUID().toString(),
             tenantId = request.tenantId,
             parentBranchId = request.parentBranchId,
             code = request.code,
@@ -37,7 +35,7 @@ class BranchController(
     }
 
     @GetMapping
-    fun listBranches(@RequestParam tenantId: String): ResponseEntity<List<BranchResponse>> {
+    fun listBranches(@RequestParam tenantId: Long): ResponseEntity<List<BranchResponse>> {
         return ResponseEntity.ok(
             branchRepository.findByTenantIdOrderByName(tenantId).map(BranchResponse::from)
         )

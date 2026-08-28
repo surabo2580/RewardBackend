@@ -4,14 +4,13 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import jakarta.persistence.GenerationType
 import jakarta.persistence.GeneratedValue
-import java.math.BigDecimal
+import jakarta.persistence.GenerationType
 import java.time.Instant
 
 @Entity
-@Table(name = "reward_programs")
-data class ProgramEntity(
+@Table(name = "reward_sponsor_locations")
+data class SponsorLocationEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0,
@@ -20,23 +19,21 @@ data class ProgramEntity(
     val tenantId: Long = 0,
 
     @Column(nullable = false)
-    val name: String = "",
+    val sponsorId: Long = 0,
 
     @Column(nullable = false)
-    val currency: String = "USD",
+    val locationName: String = "",
 
     @Column(nullable = false)
-    val timezone: String = "UTC",
+    val locationCode: String = "",
+
+    val address: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 
     @Column(nullable = false)
-    val status: String = "DRAFT",
+    val status: String = "ACTIVE",
 
     @Column(nullable = false)
-    val createdAt: Instant = Instant.now(),
-
-    @Column(nullable = false)
-    val earningRate: BigDecimal = BigDecimal.ZERO,
-
-    @Column(nullable = false)
-    val redemptionRate: BigDecimal = BigDecimal.ZERO
+    val createdAt: Instant = Instant.now()
 )
