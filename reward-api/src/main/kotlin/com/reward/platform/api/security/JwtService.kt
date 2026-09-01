@@ -15,7 +15,8 @@ data class AuthClaims(
     val role: String,
     val tenantId: Long,
     val programId: Long,
-    val sponsorId: Long?
+    val sponsorId: Long?,
+    val forcePasswordChange: Boolean
 )
 
 @Service
@@ -41,6 +42,7 @@ class JwtService(
             .claim("tenantId", user.tenantId)
             .claim("programId", user.programId)
             .claim("sponsorId", user.sponsorId)
+            .claim("forcePasswordChange", user.forcePasswordChange)
             .signWith(signingKey)
             .compact()
 
@@ -58,6 +60,7 @@ class JwtService(
         val tenantId = claims["tenantId"].toLongClaim()
         val programId = claims["programId"].toLongClaim()
         val sponsorId = claims["sponsorId"].toLongClaimOrNull()
+        val forcePasswordChange = claims["forcePasswordChange"].toBooleanClaim()
 
         return AuthClaims(
             userId = userId,
@@ -65,7 +68,8 @@ class JwtService(
             role = role,
             tenantId = tenantId,
             programId = programId,
-            sponsorId = sponsorId
+            sponsorId = sponsorId,
+            forcePasswordChange = forcePasswordChange
         )
     }
 
@@ -83,6 +87,14 @@ class JwtService(
             is Number -> this.toLong()
             is String -> this.toLongOrNull()
             else -> null
+        }
+    }
+
+    private fun Any?.toBooleanClaim(): Boolean {
+        return when (this) {
+            is Boolean -> this
+            is String -> this.toBooleanStrictOrNull() ?: false
+            else -> false
         }
     }
 }

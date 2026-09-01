@@ -39,6 +39,9 @@ data class SystemUserEntity(
     val status: String = "ACTIVE",
 
     @Column(nullable = false)
+    val forcePasswordChange: Boolean = false,
+
+    @Column(nullable = false)
     val createdAt: Instant = Instant.now(),
 
     val lastLoginAt: Instant? = null

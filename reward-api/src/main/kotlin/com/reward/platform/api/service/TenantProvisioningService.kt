@@ -118,6 +118,7 @@ class TenantProvisioningService(
         }
 
         val passwordHash = passwordEncoder.encode(rawPassword) ?: error("Password encoding failed")
+        val isTemporaryPassword = adminPasswordOverride == null
         val systemUser = systemUserRepository.save(
             SystemUserEntity(
                 email = request.adminEmail.lowercase(),
@@ -127,7 +128,8 @@ class TenantProvisioningService(
                 programId = program.id,
                 sponsorId = hostSponsor.id,
                 role = role,
-                status = "ACTIVE"
+                status = "ACTIVE",
+                forcePasswordChange = isTemporaryPassword
             )
         )
 

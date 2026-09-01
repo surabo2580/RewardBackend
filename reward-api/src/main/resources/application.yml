@@ -22,6 +22,8 @@ security:
     secret: ${JWT_SECRET:change-me-in-prod-at-least-32-chars}
     issuer: ${JWT_ISSUER:benevo-dashboard}
     access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:7200}
+  password-reset-ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:30}
+  invite-token-ttl-hours: ${INVITE_TOKEN_TTL_HOURS:72}
 
 ops:
   provisioning:

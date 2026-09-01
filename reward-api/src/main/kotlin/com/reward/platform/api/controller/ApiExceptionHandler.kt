@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.method.annotation.HandlerMethodValidationException
+import java.util.regex.Pattern
 
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -45,9 +46,39 @@ class ApiExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableRequest(exception: HttpMessageNotReadableException): ResponseEntity<Map<String, String>> {
+        val rawMessage = exception.mostSpecificCause.message ?: "Malformed JSON request"
+        val fieldName = extractFieldNameFromJacksonMessage(rawMessage)
+
+        val friendlyMessage = when {
+            rawMessage.contains("Cannot map `null` into type `long`", ignoreCase = true) -> {
+                if (fieldName != null) {
+                    "Invalid request body: '$fieldName' is required and must be a number."
+                } else {
+                    "Invalid request body: one or more required numeric fields are missing or null."
+                }
+            }
+            rawMessage.contains("Cannot deserialize value of type", ignoreCase = true) -> {
+                if (fieldName != null) {
+                    "Invalid request body: '$fieldName' has the wrong data type."
+                } else {
+                    "Invalid request body: one or more fields have the wrong data type."
+                }
+            }
+            else -> "Malformed JSON request"
+        }
+
         return ResponseEntity.badRequest().body(
-            mapOf("error" to (exception.mostSpecificCause.message ?: "Malformed JSON request"))
+            mapOf("error" to friendlyMessage)
         )
+    }
+
+    private fun extractFieldNameFromJacksonMessage(rawMessage: String): String? {
+        val matcher = Pattern.compile("\\[\\\"([^\\\"]+)\\\"\\]").matcher(rawMessage)
+        var fieldName: String? = null
+        while (matcher.find()) {
+            fieldName = matcher.group(1)
+        }
+        return fieldName
     }
 
     @ExceptionHandler(Exception::class)

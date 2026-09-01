@@ -21,6 +21,9 @@ class ApiKeyFilter(
         return request.method == "OPTIONS" ||
             (request.method == "POST" && request.requestURI == "/api/provisioning/tenants") ||
             (request.method == "POST" && request.requestURI == "/api/auth/login") ||
+            (request.method == "POST" && request.requestURI == "/api/auth/forgot-password") ||
+            (request.method == "POST" && request.requestURI == "/api/auth/reset-password") ||
+            (request.method == "POST" && request.requestURI == "/api/users/accept-invite") ||
             (request.method == "POST" && request.requestURI == "/api/public/register") ||
             (request.method == "POST" && request.requestURI == "/api/public/enterprise-inquiries") ||
             (request.method == "POST" && request.requestURI == "/api/admin/provisioning/enterprise") ||
@@ -58,7 +61,17 @@ class ApiKeyFilter(
             request.setAttribute("programId", claims.programId)
             request.setAttribute("sponsorId", claims.sponsorId)
             request.setAttribute("authUserId", claims.userId)
+            request.setAttribute("authRole", claims.role)
             request.setAttribute("authIdentityType", "SYSTEM_USER")
+
+            val firstLoginAllowed = request.requestURI == "/api/auth/change-password" ||
+                request.requestURI == "/api/auth/logout" ||
+                request.requestURI == "/api/auth/me"
+            if (claims.forcePasswordChange && !firstLoginAllowed) {
+                writeForbidden(request, response, "Password change required before accessing dashboard APIs")
+                return
+            }
+
             filterChain.doFilter(request, response)
             return
         }
