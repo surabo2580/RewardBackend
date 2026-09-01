@@ -17,6 +17,16 @@ spring:
 server:
   port: 8080
 
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-prod-at-least-32-chars}
+    issuer: ${JWT_ISSUER:benevo-dashboard}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:7200}
+
+ops:
+  provisioning:
+    key: ${OPS_PROVISIONING_KEY:dev-ops-key}
+
 ---
 spring:
   config:

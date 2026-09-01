@@ -43,7 +43,15 @@ data class TenantProvisionResponse(
     val hostSponsor: SponsorResponse? = null,
     val tiers: List<TierResponse>,
     val apiKey: String,
-    val apiKeyHeader: String = "X-API-Key"
+    val apiKeyHeader: String = "X-API-Key",
+    val systemUser: SystemUserBootstrapCredentials? = null
+)
+
+data class SystemUserBootstrapCredentials(
+    val email: String,
+    val username: String,
+    val temporaryPassword: String,
+    val role: String
 )
 
 data class TierResponse(
