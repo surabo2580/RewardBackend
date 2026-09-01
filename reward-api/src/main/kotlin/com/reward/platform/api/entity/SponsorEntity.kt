@@ -30,6 +30,9 @@ data class SponsorEntity(
     val sponsorCode: String = "",
 
     @Column(nullable = false)
+    val sponsorType: String = "CHILD",
+
+    @Column(nullable = false)
     val status: String = "ACTIVE",
 
     @Column(nullable = false)

@@ -12,7 +12,7 @@ data class BranchRuleCreateRequest(
     val programId: Long = 0,
     val sponsorId: Long? = null,
     val locationId: Long? = null,
-    val scope: String = "PROGRAM",
+    val scope: String = "PROGRAM", // PROGRAM | SPONSOR | LOCATION | PARENT | PARTNER
 
     @field:NotBlank(message = "Rule name is required")
     val name: String = "",

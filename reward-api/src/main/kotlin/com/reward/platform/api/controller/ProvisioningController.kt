@@ -95,6 +95,7 @@ class ProvisioningController(
                 programId = program.id,
                 name = request.name,
                 sponsorCode = "HOST_${request.slug.uppercase().replace('-', '_')}",
+                sponsorType = "HOST",
                 status = "ACTIVE"
             )
         )

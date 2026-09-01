@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.RequestAttribute
 
 @CrossOrigin(origins = ["*"])
 @RestController
@@ -21,7 +22,11 @@ class MemberController(
 ) {
 
     @PostMapping
-    fun createMember(@Valid @RequestBody request: MemberCreateRequest): ResponseEntity<MemberResponse> {
+    fun createMember(
+        @RequestAttribute("tenantId") tenantId: Long,
+        @Valid @RequestBody request: MemberCreateRequest
+    ): ResponseEntity<MemberResponse> {
+        require(request.tenantId == tenantId) { "Tenant does not match API key" }
         val entity = MemberEntity(
             id = 0,
             tenantId = request.tenantId,
@@ -33,7 +38,7 @@ class MemberController(
     }
 
     @GetMapping
-    fun listMembers(): ResponseEntity<List<MemberResponse>> {
-        return ResponseEntity.ok(memberRepository.findAll().map(MemberResponse::from))
+    fun listMembers(@RequestAttribute("tenantId") tenantId: Long): ResponseEntity<List<MemberResponse>> {
+        return ResponseEntity.ok(memberRepository.findByTenantIdOrderByCreatedAtDesc(tenantId).map(MemberResponse::from))
     }
 }

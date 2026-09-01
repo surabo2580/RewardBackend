@@ -10,6 +10,7 @@ data class SponsorCreateRequest(
     val parentSponsorId: Long? = null,
     @field:NotBlank val name: String = "",
     @field:NotBlank val sponsorCode: String = "",
+    val sponsorType: String = "CHILD",
     val status: String = "ACTIVE"
 )
 
@@ -20,6 +21,7 @@ data class SponsorResponse(
     val parentSponsorId: Long?,
     val name: String,
     val sponsorCode: String,
+    val sponsorType: String,
     val status: String,
     val createdAt: Instant
 ) {
@@ -31,6 +33,7 @@ data class SponsorResponse(
             parentSponsorId = entity.parentSponsorId,
             name = entity.name,
             sponsorCode = entity.sponsorCode,
+            sponsorType = entity.sponsorType,
             status = entity.status,
             createdAt = entity.createdAt
         )
@@ -42,6 +45,7 @@ data class SponsorLocationCreateRequest(
     val sponsorId: Long = 0,
     @field:NotBlank val locationName: String = "",
     @field:NotBlank val locationCode: String = "",
+    val locationPin: String? = null,
     val address: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -54,6 +58,7 @@ data class SponsorLocationResponse(
     val sponsorId: Long,
     val locationName: String,
     val locationCode: String,
+    val locationPin: String,
     val address: String?,
     val latitude: Double?,
     val longitude: Double?,
@@ -67,6 +72,7 @@ data class SponsorLocationResponse(
             sponsorId = entity.sponsorId,
             locationName = entity.locationName,
             locationCode = entity.locationCode,
+            locationPin = entity.locationPin,
             address = entity.address,
             latitude = entity.latitude,
             longitude = entity.longitude,

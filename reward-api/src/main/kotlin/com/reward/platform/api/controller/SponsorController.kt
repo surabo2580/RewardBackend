@@ -27,19 +27,25 @@ class SponsorController(
         @Valid @RequestBody request: SponsorCreateRequest
     ): ResponseEntity<SponsorResponse> {
         require(request.tenantId == tenantId) { "Tenant does not match API key" }
+        val sponsorType = request.sponsorType.uppercase()
+        require(sponsorType in setOf("HOST", "CHILD", "PARTNER")) { "Sponsor type must be HOST, CHILD, or PARTNER" }
         require(programRepository.findById(request.programId).orElse(null)?.tenantId == request.tenantId) {
             "Program does not belong to tenant"
+        }
+        if (sponsorType == "HOST" || sponsorType == "PARTNER") {
+            require(request.parentSponsorId == null) { "HOST and PARTNER sponsors cannot have parent sponsor" }
         }
         request.parentSponsorId?.let { parentId ->
             val parent = sponsorRepository.findById(parentId).orElse(null)
             require(parent != null && parent.tenantId == request.tenantId && parent.programId == request.programId) {
                 "Parent sponsor does not belong to tenant and program"
             }
+            require(parent.sponsorType != "PARTNER") { "PARTNER sponsor cannot be a parent" }
         }
         return ResponseEntity.ok(SponsorResponse.from(sponsorRepository.save(SponsorEntity(
             tenantId = request.tenantId, programId = request.programId,
             parentSponsorId = request.parentSponsorId, name = request.name,
-            sponsorCode = request.sponsorCode, status = request.status
+            sponsorCode = request.sponsorCode, sponsorType = sponsorType, status = request.status
         ))))
     }
 
@@ -65,6 +71,7 @@ class SponsorController(
         return ResponseEntity.ok(SponsorLocationResponse.from(locationRepository.save(SponsorLocationEntity(
             tenantId = request.tenantId, sponsorId = sponsorId,
             locationName = request.locationName, locationCode = request.locationCode,
+            locationPin = request.locationPin?.trim()?.ifBlank { request.locationCode } ?: request.locationCode,
             address = request.address, latitude = request.latitude, longitude = request.longitude,
             status = request.status
         ))))

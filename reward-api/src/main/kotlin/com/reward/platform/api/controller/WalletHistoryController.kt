@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.RequestAttribute
 
 @CrossOrigin(origins = ["*"])
 @RestController
@@ -20,9 +21,11 @@ class WalletHistoryController(
 
     @GetMapping("/wallet-history/{tenantId}/{memberId}")
     fun getWalletHistory(
+        @RequestAttribute("tenantId") authenticatedTenantId: Long,
         @PathVariable tenantId: Long,
         @PathVariable memberId: String
     ): ResponseEntity<List<WalletHistoryEntity>> {
+        require(tenantId == authenticatedTenantId) { "Tenant does not match API key" }
         val member = memberRepository.findByTenantIdAndExternalUserId(tenantId, memberId)
         val results = member?.let {
             walletHistoryRepository.findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId, it.id)

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.beans.factory.annotation.Value
 import com.reward.platform.api.security.ApiKeyService
 
@@ -38,7 +39,8 @@ class TenantController(
     }
 
     @GetMapping
-    fun listTenants(): ResponseEntity<List<TenantResponse>> {
-        return ResponseEntity.ok(tenantRepository.findAll().map(TenantResponse::from))
+    fun listTenants(@RequestAttribute("tenantId") tenantId: Long): ResponseEntity<List<TenantResponse>> {
+        val tenant = tenantRepository.findById(tenantId).orElse(null)
+        return ResponseEntity.ok(tenant?.let { listOf(TenantResponse.from(it)) } ?: emptyList())
     }
 }

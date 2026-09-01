@@ -6,10 +6,13 @@ import com.reward.platform.api.entity.AccountEntity
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
 import com.reward.platform.api.entity.BranchRuleEntity
+import com.reward.platform.api.entity.MemberEntity
+import com.reward.platform.api.entity.SponsorEntity
 import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.BranchRepository
 import com.reward.platform.api.repository.BranchRuleRepository
 import com.reward.platform.api.repository.MemberRepository
+import com.reward.platform.api.repository.PartnerMembershipRepository
 import com.reward.platform.api.repository.TransactionRepository
 import com.reward.platform.api.repository.WalletHistoryRepository
 import com.reward.platform.api.repository.ProgramRepository
@@ -35,6 +38,7 @@ class RewardEventController(
     private val branchRepository: BranchRepository,
     private val branchRuleRepository: BranchRuleRepository,
     private val memberRepository: MemberRepository,
+    private val partnerMembershipRepository: PartnerMembershipRepository,
     private val transactionRepository: TransactionRepository,
     private val walletHistoryRepository: WalletHistoryRepository,
     private val programRepository: ProgramRepository,
@@ -49,10 +53,6 @@ class RewardEventController(
         @Valid @RequestBody request: RewardEventRequest
     ): ResponseEntity<RewardEventResponse> {
         require(request.tenantId == tenantId) { "Tenant does not match API key" }
-        val member = memberRepository.findByTenantIdAndExternalUserId(request.tenantId, request.memberId)
-            ?: return ResponseEntity.badRequest().body(
-                RewardEventResponse(success = false, pointsAwarded = 0, message = "Member not found")
-            )
 
         val program = programRepository.findById(request.programId).orElse(null)
         require(program != null && program.tenantId == request.tenantId) { "Program does not belong to tenant" }
@@ -67,6 +67,11 @@ class RewardEventController(
         require(sponsor != null && sponsor.tenantId == request.tenantId && sponsor.programId == request.programId) {
             "Sponsor is required and must belong to program"
         }
+
+        val member = resolveMember(request, sponsor)
+            ?: return ResponseEntity.badRequest().body(
+                RewardEventResponse(success = false, pointsAwarded = 0, message = "Member not found")
+            )
 
         val location = when {
             request.locationId != null -> locationRepository.findById(request.locationId).orElse(null)
@@ -100,10 +105,17 @@ class RewardEventController(
         )
 
         val eventType = request.eventType.uppercase()
+        val sponsorAncestorIds = collectSponsorAncestorIds(sponsor)
         val configuredRules = branchRuleRepository
             .findByTenantIdAndEventTypeAndIsActiveTrue(request.tenantId, eventType)
             .filter { it.programId == null || it.programId == request.programId }
-            .filter { it.scope == "PROGRAM" || (it.scope == "SPONSOR" && it.sponsorId == sponsor.id) || (it.scope == "LOCATION" && it.locationId == location?.id) }
+            .filter {
+                it.scope == "PROGRAM" ||
+                    (it.scope == "SPONSOR" && it.sponsorId == sponsor.id) ||
+                    (it.scope == "LOCATION" && it.locationId == location?.id) ||
+                    (it.scope == "PARENT" && it.sponsorId in sponsorAncestorIds) ||
+                    (it.scope == "PARTNER" && sponsor.sponsorType == "PARTNER" && it.sponsorId == sponsor.id)
+            }
             .filter { it.minAmount == null || BigDecimal.valueOf(request.amount) >= it.minAmount }
             .sortedWith(compareByDescending<BranchRuleEntity> { if (it.scope == "LOCATION") 3 else if (it.scope == "SPONSOR") 2 else 1 }.thenByDescending { it.priority })
 
@@ -150,7 +162,7 @@ class RewardEventController(
             points = pointsAwarded,
             status = "APPROVED",
             referenceId = request.referenceId,
-            channel = request.channel,
+            channel = request.channel?.ifBlank { "POS" } ?: "POS",
             createdAt = Instant.now()
         )
         transactionRepository.save(transaction)
@@ -178,5 +190,39 @@ class RewardEventController(
                 message = "Awarded $pointsAwarded points for ${request.eventType}"
             )
         )
+    }
+
+    private fun resolveMember(request: RewardEventRequest, sponsor: SponsorEntity): MemberEntity? {
+        val directMemberId = request.memberId?.trim().orEmpty()
+        if (directMemberId.isNotEmpty()) {
+            return memberRepository.findByTenantIdAndExternalUserId(request.tenantId, directMemberId)
+        }
+
+        val externalMembershipId = request.externalMembershipId?.trim().orEmpty()
+        if (externalMembershipId.isEmpty() || sponsor.sponsorType != "PARTNER") {
+            return null
+        }
+
+        val partnerMembership = partnerMembershipRepository.findByTenantIdAndSponsorIdAndExternalMembershipId(
+            request.tenantId,
+            sponsor.id,
+            externalMembershipId
+        ) ?: return null
+
+        return memberRepository.findById(partnerMembership.memberId).orElse(null)
+            ?.takeIf { it.tenantId == request.tenantId }
+    }
+
+    private fun collectSponsorAncestorIds(sponsor: SponsorEntity): Set<Long> {
+        val ancestors = mutableSetOf<Long>()
+        var currentParentId = sponsor.parentSponsorId
+        while (currentParentId != null) {
+            if (!ancestors.add(currentParentId)) {
+                break
+            }
+            val parent = sponsorRepository.findById(currentParentId).orElse(null) ?: break
+            currentParentId = parent.parentSponsorId
+        }
+        return ancestors
     }
 }

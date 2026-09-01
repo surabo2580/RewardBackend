@@ -35,14 +35,22 @@ class BranchRuleController(
     ): ResponseEntity<BranchRuleResponse> {
         require(request.tenantId == tenantId) { "Tenant does not match API key" }
         val scope = request.scope.uppercase()
-        require(scope in setOf("PROGRAM", "SPONSOR", "LOCATION")) { "Rule scope must be PROGRAM, SPONSOR, or LOCATION" }
+        require(scope in setOf("PROGRAM", "SPONSOR", "LOCATION", "PARENT", "PARTNER")) {
+            "Rule scope must be PROGRAM, SPONSOR, LOCATION, PARENT, or PARTNER"
+        }
         require(programRepository.findById(request.programId).orElse(null)?.tenantId == request.tenantId) {
             "Program does not belong to tenant"
         }
-        if (scope == "SPONSOR" || scope == "LOCATION") {
+        if (scope == "SPONSOR" || scope == "LOCATION" || scope == "PARENT" || scope == "PARTNER") {
             val sponsor = request.sponsorId?.let { sponsorRepository.findById(it).orElse(null) }
             require(sponsor != null && sponsor.tenantId == request.tenantId && sponsor.programId == request.programId) {
                 "Sponsor does not belong to tenant and program"
+            }
+            if (scope == "PARENT") {
+                require(sponsor.sponsorType == "HOST") { "PARENT scoped rule requires a HOST sponsor" }
+            }
+            if (scope == "PARTNER") {
+                require(sponsor.sponsorType == "PARTNER") { "PARTNER scoped rule requires a PARTNER sponsor" }
             }
         }
         if (scope == "LOCATION") {

@@ -1,7 +1,6 @@
 package com.reward.platform.api.dto
 
 import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
 
 data class RewardEventRequest(
     val tenantId: Long = 0,
@@ -13,17 +12,17 @@ data class RewardEventRequest(
     val locationCode: String? = null,
     val branchCode: String? = null,
 
-    @field:NotBlank(message = "Member id is required")
-    val memberId: String = "",
+    val memberId: String? = null,
+    val externalMembershipId: String? = null,
 
-    @field:NotBlank(message = "Event type is required")
+    @field:jakarta.validation.constraints.NotBlank(message = "Event type is required")
     val eventType: String = "PURCHASE",
 
     @field:Min(value = 0, message = "Amount must be zero or greater")
     val amount: Long = 0,
 
     val referenceId: String? = null,
-    val channel: String = "POS"
+    val channel: String? = null
 )
 
 data class RewardEventResponse(

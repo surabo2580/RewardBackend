@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.RequestAttribute
 
 @CrossOrigin(origins = ["*"])
 @RestController
@@ -22,7 +23,11 @@ class ProgramController(
 ) {
 
     @PostMapping
-    fun createProgram(@Valid @RequestBody request: ProgramCreateRequest): ResponseEntity<ProgramResponse> {
+    fun createProgram(
+        @RequestAttribute("tenantId") tenantId: Long,
+        @Valid @RequestBody request: ProgramCreateRequest
+    ): ResponseEntity<ProgramResponse> {
+        require(request.tenantId == tenantId) { "Tenant does not match API key" }
         val entity = ProgramEntity(
             id = 0,
             tenantId = request.tenantId,
@@ -37,10 +42,13 @@ class ProgramController(
     }
 
     @GetMapping("/{tenantId}")
-    fun getProgramsByTenant(@PathVariable tenantId: Long): ResponseEntity<List<ProgramResponse>> {
+    fun getProgramsByTenant(
+        @RequestAttribute("tenantId") authenticatedTenantId: Long,
+        @PathVariable tenantId: Long
+    ): ResponseEntity<List<ProgramResponse>> {
+        require(tenantId == authenticatedTenantId) { "Tenant does not match API key" }
         return ResponseEntity.ok(
-            programRepository.findAll()
-                .filter { it.tenantId == tenantId }
+            programRepository.findByTenantIdOrderByCreatedAtDesc(tenantId)
                 .map(ProgramResponse::from)
         )
     }
