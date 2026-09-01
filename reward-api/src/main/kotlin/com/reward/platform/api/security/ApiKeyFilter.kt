@@ -28,6 +28,10 @@ class ApiKeyFilter(
         val tenant = apiKey?.let { tenantRepository.findByApiKeyHash(ApiKeyService.hash(it)) }
 
         if (tenant == null || tenant.status != "ACTIVE") {
+            // Filters run before Spring MVC's @CrossOrigin handling, so add CORS headers
+            // manually here or the browser reports a misleading CORS error instead of the 401.
+            response.setHeader("Access-Control-Allow-Origin", request.getHeader("Origin") ?: "*")
+            response.setHeader("Vary", "Origin")
             response.status = HttpServletResponse.SC_UNAUTHORIZED
             response.contentType = MediaType.APPLICATION_JSON_VALUE
             response.writer.write("{\"error\":\"Valid X-API-Key header is required\"}")
