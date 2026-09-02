@@ -2,13 +2,17 @@ package com.reward.platform.api.service
 
 import com.reward.platform.api.dto.TierSetup
 import com.reward.platform.api.dto.TenantProvisionRequest
+import com.reward.platform.api.entity.BranchEntity
 import com.reward.platform.api.entity.ProgramEntity
 import com.reward.platform.api.entity.SponsorEntity
+import com.reward.platform.api.entity.SponsorLocationEntity
 import com.reward.platform.api.entity.SystemUserEntity
 import com.reward.platform.api.entity.TenantEntity
 import com.reward.platform.api.entity.TierEntity
+import com.reward.platform.api.repository.BranchRepository
 import com.reward.platform.api.repository.ProgramRepository
 import com.reward.platform.api.repository.SponsorRepository
+import com.reward.platform.api.repository.SponsorLocationRepository
 import com.reward.platform.api.repository.SystemUserRepository
 import com.reward.platform.api.repository.TenantRepository
 import com.reward.platform.api.repository.TierRepository
@@ -33,11 +37,17 @@ class TenantProvisioningService(
     private val tenantRepository: TenantRepository,
     private val programRepository: ProgramRepository,
     private val tierRepository: TierRepository,
+    private val branchRepository: BranchRepository,
     private val sponsorRepository: SponsorRepository,
+    private val sponsorLocationRepository: SponsorLocationRepository,
     private val systemUserRepository: SystemUserRepository,
     private val passwordEncoder: PasswordEncoder,
     @Value("\${PLATFORM_BASE_DOMAIN:benevo.io}") private val baseDomain: String
 ) {
+    companion object {
+        const val DEFAULT_BRANCH_CODE = "DEFAULT_MAIN"
+        const val DEFAULT_LOCATION_CODE = "ONLINE_DEFAULT"
+    }
 
     @Transactional
     fun provisionTenant(
@@ -105,6 +115,36 @@ class TenantProvisioningService(
                 status = "ACTIVE"
             )
         )
+
+        if (!branchRepository.existsByTenantIdAndCode(tenant.id, DEFAULT_BRANCH_CODE)) {
+            branchRepository.save(
+                BranchEntity(
+                    tenantId = tenant.id,
+                    code = DEFAULT_BRANCH_CODE,
+                    name = "${request.name} Main Branch",
+                    city = null,
+                    status = "ACTIVE"
+                )
+            )
+        }
+
+        if (sponsorLocationRepository.findByTenantIdAndSponsorIdAndLocationCode(
+                tenant.id,
+                hostSponsor.id,
+                DEFAULT_LOCATION_CODE
+            ) == null
+        ) {
+            sponsorLocationRepository.save(
+                SponsorLocationEntity(
+                    tenantId = tenant.id,
+                    sponsorId = hostSponsor.id,
+                    locationName = "${request.name} Main Location",
+                    locationCode = DEFAULT_LOCATION_CODE,
+                    locationPin = "DEFAULT",
+                    status = "ACTIVE"
+                )
+            )
+        }
 
         val username = request.adminEmail.substringBefore('@').ifBlank { request.slug }
             .lowercase()

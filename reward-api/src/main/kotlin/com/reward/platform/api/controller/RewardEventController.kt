@@ -45,6 +45,10 @@ class RewardEventController(
     private val sponsorRepository: SponsorRepository,
     private val locationRepository: SponsorLocationRepository
 ) {
+    companion object {
+        private const val DEFAULT_BRANCH_CODE = "DEFAULT_MAIN"
+        private const val DEFAULT_LOCATION_CODE = "ONLINE_DEFAULT"
+    }
 
     @PostMapping("/events")
     @Transactional
@@ -73,19 +77,46 @@ class RewardEventController(
                 RewardEventResponse(success = false, pointsAwarded = 0, message = "Member not found")
             )
 
-        val location = when {
+        val requestedLocation = when {
             request.locationId != null -> locationRepository.findById(request.locationId).orElse(null)
             request.locationCode != null -> locationRepository.findByTenantIdAndLocationCode(request.tenantId, request.locationCode)
             else -> null
         }
-        require(location == null || (location.tenantId == request.tenantId && location.sponsorId == sponsor.id)) {
+        require(requestedLocation == null || (requestedLocation.tenantId == request.tenantId && requestedLocation.sponsorId == sponsor.id)) {
             "Location must belong to sponsor"
         }
 
-        val branch = request.branchCode?.let {
-            branchRepository.findByTenantIdAndCode(request.tenantId, it)
+        val location = requestedLocation ?: locationRepository.findByTenantIdAndSponsorIdAndLocationCode(
+            request.tenantId,
+            sponsor.id,
+            DEFAULT_LOCATION_CODE
+        )
+            ?: return ResponseEntity.badRequest().body(
+                RewardEventResponse(
+                    success = false,
+                    pointsAwarded = 0,
+                    message = "Cannot process transaction event. Configure default location '$DEFAULT_LOCATION_CODE' for this sponsor or provide a valid locationId/locationCode."
+                )
+            )
+
+        val branchCode = request.branchCode?.trim().orEmpty()
+        val branch = if (branchCode.isNotEmpty()) {
+            branchRepository.findByTenantIdAndCode(request.tenantId, branchCode)
                 ?: return ResponseEntity.badRequest().body(
-                    RewardEventResponse(success = false, pointsAwarded = 0, message = "Branch not found")
+                    RewardEventResponse(
+                        success = false,
+                        pointsAwarded = 0,
+                        message = "Branch '$branchCode' not found for this tenant"
+                    )
+                )
+        } else {
+            branchRepository.findByTenantIdAndCodeAndStatus(request.tenantId, DEFAULT_BRANCH_CODE, "ACTIVE")
+                ?: return ResponseEntity.badRequest().body(
+                    RewardEventResponse(
+                        success = false,
+                        pointsAwarded = 0,
+                        message = "Cannot process transaction event. Configure default branch '$DEFAULT_BRANCH_CODE' or provide branchCode."
+                    )
                 )
         }
 
