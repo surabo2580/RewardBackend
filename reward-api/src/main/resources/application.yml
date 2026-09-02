@@ -1,0 +1,52 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:reward_db}
+    username: ${POSTGRES_USER:surajdas}
+    password: ${POSTGRES_PASSWORD:surajdas}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-prod-at-least-32-chars}
+    issuer: ${JWT_ISSUER:benevo-dashboard}
+    access-token-ttl-seconds: ${JWT_ACCESS_TOKEN_TTL_SECONDS:7200}
+  password-reset-ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:30}
+  invite-token-ttl-hours: ${INVITE_TOKEN_TTL_HOURS:72}
+
+ops:
+  provisioning:
+    key: ${OPS_PROVISIONING_KEY:dev-ops-key}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: h2
+  datasource:
+    url: jdbc:h2:mem:rewarddb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
