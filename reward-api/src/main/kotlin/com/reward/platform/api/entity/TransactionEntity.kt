@@ -60,6 +60,11 @@ data class TransactionEntity(
 
     val policyScope: String? = null,
 
+    val offerMultiplier: BigDecimal? = null,
+
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    val offerBonusPoints: Long = 0,
+
     @Column(nullable = false)
     val status: String = "APPROVED",
 

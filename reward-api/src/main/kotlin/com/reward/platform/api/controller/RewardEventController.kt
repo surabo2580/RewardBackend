@@ -3,6 +3,7 @@ package com.reward.platform.api.controller
 import com.reward.platform.api.dto.RewardEventRequest
 import com.reward.platform.api.dto.RewardEventResponse
 import com.reward.platform.api.entity.AccountEntity
+import com.reward.platform.api.entity.OfferApplicationEntity
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
 import com.reward.platform.api.entity.MemberEntity
@@ -10,6 +11,7 @@ import com.reward.platform.api.entity.SponsorEntity
 import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.BranchRepository
 import com.reward.platform.api.repository.MemberRepository
+import com.reward.platform.api.repository.OfferApplicationRepository
 import com.reward.platform.api.repository.PartnerMembershipRepository
 import com.reward.platform.api.repository.TransactionRepository
 import com.reward.platform.api.repository.WalletHistoryRepository
@@ -17,6 +19,8 @@ import com.reward.platform.api.repository.ProgramRepository
 import com.reward.platform.api.repository.SponsorRepository
 import com.reward.platform.api.repository.SponsorLocationRepository
 import com.reward.platform.api.service.RewardPolicyResolver
+import com.reward.platform.api.service.OfferEvaluationService
+import com.reward.platform.api.service.PointExpiryPolicyService
 import com.reward.platform.api.service.TierEvaluationService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -37,12 +41,15 @@ class RewardEventController(
     private val accountRepository: AccountRepository,
     private val branchRepository: BranchRepository,
     private val memberRepository: MemberRepository,
+    private val offerApplicationRepository: OfferApplicationRepository,
     private val partnerMembershipRepository: PartnerMembershipRepository,
     private val transactionRepository: TransactionRepository,
     private val walletHistoryRepository: WalletHistoryRepository,
     private val programRepository: ProgramRepository,
     private val sponsorRepository: SponsorRepository,
     private val locationRepository: SponsorLocationRepository,
+    private val offerEvaluationService: OfferEvaluationService,
+    private val pointExpiryPolicyService: PointExpiryPolicyService,
     private val rewardPolicyResolver: RewardPolicyResolver,
     private val tierEvaluationService: TierEvaluationService
 ) {
@@ -147,17 +154,38 @@ class RewardEventController(
                 )
         }
 
+        val eventType = request.eventType.uppercase()
         val earnedPoints = rewardPolicyResolver.resolveEarnPoints(
             tenantId = request.tenantId,
             programId = request.programId,
             sponsorId = sponsor.id,
             locationId = location.id,
-            eventType = request.eventType.uppercase(),
+            eventType = eventType,
             amount = request.amount
         )
         val tierMultiplier = tierEvaluationService.currentMultiplier(member, request.programId)
+        val offerResult = if (eventType == "PURCHASE") {
+            offerEvaluationService.evaluate(
+                tenantId = request.tenantId,
+                programId = request.programId,
+                memberId = member.id,
+                sponsorId = sponsor.id,
+                locationId = location.id,
+                tierRank = tierEvaluationService.currentRank(member, request.programId),
+                amount = request.amount
+            )
+        } else {
+            com.reward.platform.api.service.OfferEvaluationResult()
+        }
         val redemptionPoints = java.math.BigDecimal.valueOf(earnedPoints.redemption)
             .multiply(tierMultiplier)
+            .multiply(offerResult.multiplier)
+            .add(java.math.BigDecimal.valueOf(offerResult.bonusPoints))
+            .setScale(0, RoundingMode.DOWN)
+            .longValueExact()
+        val recognitionPoints = java.math.BigDecimal.valueOf(earnedPoints.recognition)
+            .multiply(offerResult.multiplier)
+            .add(java.math.BigDecimal.valueOf(offerResult.bonusPoints))
             .setScale(0, RoundingMode.DOWN)
             .longValueExact()
 
@@ -192,14 +220,12 @@ class RewardEventController(
             accountType = "RECOGNITION"
         )
         val updatedRecognitionAccount = accountRepository.save(recognitionAccount.copy(
-            availablePoints = recognitionAccount.availablePoints + earnedPoints.recognition,
-            lifetimeEarnedPoints = recognitionAccount.lifetimeEarnedPoints + earnedPoints.recognition,
+            availablePoints = recognitionAccount.availablePoints + recognitionPoints,
+            lifetimeEarnedPoints = recognitionAccount.lifetimeEarnedPoints + recognitionPoints,
             updatedAt = Instant.now()
         ))
 
         val tierResult = tierEvaluationService.evaluate(member, request.programId, updatedRecognitionAccount.lifetimeEarnedPoints)
-
-        val eventType = request.eventType.uppercase()
 
         val transaction = TransactionEntity(
             id = 0,
@@ -214,16 +240,29 @@ class RewardEventController(
             transactionType = "EARN",
             amount = request.amount,
             points = redemptionPoints,
-            recognitionPoints = earnedPoints.recognition,
+            recognitionPoints = recognitionPoints,
             policyId = earnedPoints.rule?.id,
             policyScope = earnedPoints.rule?.scope,
+            offerMultiplier = offerResult.multiplier,
+            offerBonusPoints = offerResult.bonusPoints,
             status = "APPROVED",
             referenceId = referenceId.ifBlank { null },
             channel = request.channel?.ifBlank { "POS" } ?: "POS",
             createdAt = Instant.now()
         )
-        transactionRepository.save(transaction)
+        val savedTransaction = transactionRepository.save(transaction)
+        offerResult.offerIds.forEach { offerId ->
+            offerApplicationRepository.save(
+                OfferApplicationEntity(
+                    tenantId = request.tenantId,
+                    offerId = offerId,
+                    memberId = member.id,
+                    transactionId = savedTransaction.id
+                )
+            )
+        }
 
+        val earnedAt = Instant.now()
         val redemptionLedgerEntry = WalletHistoryEntity(
             id = 0,
             tenantId = request.tenantId,
@@ -238,8 +277,10 @@ class RewardEventController(
             points = redemptionPoints,
             policyId = earnedPoints.rule?.id,
             policyScope = earnedPoints.rule?.scope,
-            description = "REDEMPTION credit for $eventType${earnedPoints.rule?.let { " using ${it.scope} policy '${it.name}'" } ?: " using default policy"}",
-            createdAt = Instant.now()
+            description = "REDEMPTION credit for $eventType${earnedPoints.rule?.let { " using ${it.scope} policy '${it.name}'" } ?: " using default policy"}${offerResult.offerIds.takeIf { it.isNotEmpty() }?.let { " with offers ${it.joinToString()}" } ?: ""}",
+            expiresAt = pointExpiryPolicyService.expiresAt(program, earnedAt),
+            remainingPoints = redemptionPoints,
+            createdAt = earnedAt
         )
         walletHistoryRepository.save(redemptionLedgerEntry)
 
@@ -254,10 +295,10 @@ class RewardEventController(
                 accountId = updatedRecognitionAccount.id,
                 accountType = "RECOGNITION",
                 entryType = "CREDIT",
-                points = earnedPoints.recognition,
+                points = recognitionPoints,
                 policyId = earnedPoints.rule?.id,
                 policyScope = earnedPoints.rule?.scope,
-                description = "RECOGNITION credit for $eventType${earnedPoints.rule?.let { " using ${it.scope} policy '${it.name}'" } ?: " using default policy"}"
+                description = "RECOGNITION credit for $eventType${earnedPoints.rule?.let { " using ${it.scope} policy '${it.name}'" } ?: " using default policy"}${offerResult.offerIds.takeIf { it.isNotEmpty() }?.let { " with offers ${it.joinToString()}" } ?: ""}"
             )
         )
 
@@ -265,9 +306,10 @@ class RewardEventController(
             RewardEventResponse(
                 success = true,
                 pointsAwarded = redemptionPoints,
-                recognitionPointsAwarded = earnedPoints.recognition,
+                recognitionPointsAwarded = recognitionPoints,
                 policyId = earnedPoints.rule?.id,
                 policyScope = earnedPoints.rule?.scope,
+                appliedOfferIds = offerResult.offerIds,
                 currentTier = tierResult.currentTier,
                 tierUpgraded = tierResult.upgraded,
                 message = "Awarded $redemptionPoints redemption and ${earnedPoints.recognition} recognition points for ${request.eventType}"

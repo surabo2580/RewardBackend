@@ -38,5 +38,14 @@ data class ProgramEntity(
     val earningRate: BigDecimal = BigDecimal.ZERO,
 
     @Column(nullable = false)
-    val redemptionRate: BigDecimal = BigDecimal.ZERO
+    val redemptionRate: BigDecimal = BigDecimal.ZERO,
+
+    @Column(nullable = false)
+    val expiryType: String = "ROLLING",
+
+    @Column(nullable = false)
+    val expiryMonths: Int = 12,
+
+    @Column(nullable = false)
+    val expiryWarningDays: Int = 30
 )

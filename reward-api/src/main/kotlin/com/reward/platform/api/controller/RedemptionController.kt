@@ -94,6 +94,31 @@ class RedemptionController(
 
         val program = programRepository.findById(request.programId).orElseThrow()
         val discountAmount = BigDecimal.valueOf(request.pointsToRedeem).multiply(program.redemptionRate)
+        val pointLots = walletHistoryRepository.findLockedUnexpiredSpendableCredits(
+            request.tenantId,
+            member.id,
+            Instant.now()
+        )
+        if (pointLots.sumOf { it.remainingPoints } < request.pointsToRedeem) {
+            return ResponseEntity.badRequest().body(
+                RedemptionResponse(
+                    success = false,
+                    status = "INSUFFICIENT_BALANCE",
+                    pointsRedeemed = 0,
+                    discountAmount = "0",
+                    remainingBalance = account.availablePoints,
+                    message = "Insufficient unexpired redemption points. Run point expiry processing and retry."
+                )
+            )
+        }
+        var remainingToConsume = request.pointsToRedeem
+        pointLots.forEach { pointLot ->
+            if (remainingToConsume > 0) {
+                val consumedPoints = minOf(pointLot.remainingPoints, remainingToConsume)
+                walletHistoryRepository.save(pointLot.copy(remainingPoints = pointLot.remainingPoints - consumedPoints))
+                remainingToConsume -= consumedPoints
+            }
+        }
         val updatedAccount = accountRepository.save(
             account.copy(
                 availablePoints = account.availablePoints - request.pointsToRedeem,

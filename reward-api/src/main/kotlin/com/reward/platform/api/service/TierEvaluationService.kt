@@ -24,6 +24,13 @@ class TierEvaluationService(
             ?.multiplier
             ?: BigDecimal.ONE
 
+    fun currentRank(member: MemberEntity, programId: Long): Int =
+        tierRepository
+            .findByTenantIdAndProgramIdOrderByRank(member.tenantId, programId)
+            .firstOrNull { it.name == member.tier }
+            ?.rank
+            ?: 0
+
     fun evaluate(member: MemberEntity, programId: Long, recognitionPoints: Long): TierEvaluationResult {
         val eligibleTier = tierRepository
             .findByTenantIdAndProgramIdOrderByRank(member.tenantId, programId)

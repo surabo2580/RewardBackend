@@ -33,6 +33,7 @@ data class RewardEventResponse(
     val recognitionPointsAwarded: Long = 0,
     val policyId: Long? = null,
     val policyScope: String? = null,
+    val appliedOfferIds: List<Long> = emptyList(),
     val currentTier: String? = null,
     val tierUpgraded: Boolean = false,
     val message: String = ""

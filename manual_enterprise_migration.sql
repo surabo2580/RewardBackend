@@ -164,3 +164,19 @@ WHERE reference_id IS NOT NULL;
 
 ALTER TABLE reward_transactions
 ADD COLUMN IF NOT EXISTS original_transaction_id BIGINT;
+
+-- 9) Rolling/fixed point-expiry policy and FIFO point-lot tracking.
+ALTER TABLE reward_programs
+ADD COLUMN IF NOT EXISTS expiry_type VARCHAR(20) NOT NULL DEFAULT 'ROLLING',
+ADD COLUMN IF NOT EXISTS expiry_months INT NOT NULL DEFAULT 12,
+ADD COLUMN IF NOT EXISTS expiry_warning_days INT NOT NULL DEFAULT 30;
+
+ALTER TABLE reward_wallet_history
+ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS expired_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS remaining_points BIGINT NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS is_expired BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_reward_wallet_expiry
+ON reward_wallet_history (tenant_id, expires_at)
+WHERE account_type = 'REDEMPTION' AND entry_type = 'CREDIT' AND is_expired = FALSE AND remaining_points > 0;

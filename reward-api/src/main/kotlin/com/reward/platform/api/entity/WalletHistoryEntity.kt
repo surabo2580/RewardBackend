@@ -25,5 +25,9 @@ data class WalletHistoryEntity(
     val policyId: Long? = null,
     val policyScope: String? = null,
     val description: String? = null,
+    val expiresAt: Instant? = null,
+    val expiredAt: Instant? = null,
+    @Column(nullable = false, columnDefinition = "bigint default 0") val remainingPoints: Long = 0,
+    @Column(nullable = false, columnDefinition = "boolean default false") val isExpired: Boolean = false,
     @Column(nullable = false) val createdAt: Instant = Instant.now()
 )
