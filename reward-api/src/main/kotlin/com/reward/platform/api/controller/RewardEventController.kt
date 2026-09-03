@@ -12,6 +12,7 @@ import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.BranchRepository
 import com.reward.platform.api.repository.MemberRepository
 import com.reward.platform.api.repository.OfferApplicationRepository
+import com.reward.platform.api.repository.OfferRepository
 import com.reward.platform.api.repository.PartnerMembershipRepository
 import com.reward.platform.api.repository.TransactionRepository
 import com.reward.platform.api.repository.WalletHistoryRepository
@@ -42,6 +43,7 @@ class RewardEventController(
     private val branchRepository: BranchRepository,
     private val memberRepository: MemberRepository,
     private val offerApplicationRepository: OfferApplicationRepository,
+    private val offerRepository: OfferRepository,
     private val partnerMembershipRepository: PartnerMembershipRepository,
     private val transactionRepository: TransactionRepository,
     private val walletHistoryRepository: WalletHistoryRepository,
@@ -260,6 +262,9 @@ class RewardEventController(
                     transactionId = savedTransaction.id
                 )
             )
+            offerRepository.findById(offerId).orElse(null)?.let { offer ->
+                offerRepository.save(offer.copy(totalClaimsCount = offer.totalClaimsCount + 1))
+            }
         }
 
         val earnedAt = Instant.now()
