@@ -22,7 +22,7 @@ data class AccountEntity(
     val memberId: Long = 0,
 
     @Column(nullable = false)
-    val accountType: String = "EARN_REDEEM",
+    val accountType: String = "REDEMPTION",
 
     @Column(nullable = false)
     var availablePoints: Long = 0,
@@ -32,6 +32,9 @@ data class AccountEntity(
 
     @Column(nullable = false)
     var redeemedPoints: Long = 0,
+
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    var lifetimeEarnedPoints: Long = 0,
 
     @Column(nullable = false)
     var updatedAt: Instant = Instant.now()

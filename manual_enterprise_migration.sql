@@ -156,3 +156,11 @@ END $$;
 -- 7) index for reconciliation batch generation query
 CREATE INDEX IF NOT EXISTS idx_reward_txn_tenant_sponsor_type_created
 ON reward_transactions (tenant_id, sponsor_id, transaction_type, created_at);
+
+-- 8) Transaction safety: every supplied client reference can be processed once per operation type.
+CREATE UNIQUE INDEX IF NOT EXISTS uk_reward_transactions_tenant_reference_type
+ON reward_transactions (tenant_id, reference_id, transaction_type)
+WHERE reference_id IS NOT NULL;
+
+ALTER TABLE reward_transactions
+ADD COLUMN IF NOT EXISTS original_transaction_id BIGINT;

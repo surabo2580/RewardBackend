@@ -44,8 +44,16 @@ data class BranchRuleEntity(
     @Column(nullable = false)
     val rewardValue: BigDecimal = BigDecimal.ZERO,
 
+    val redemptionEarnRate: BigDecimal? = null,
+
+    val recognitionEarnRate: BigDecimal? = null,
+
     @Column(nullable = false)
     val isActive: Boolean = true,
+
+    val validFrom: Instant? = null,
+
+    val validUntil: Instant? = null,
 
     @Column(nullable = false)
     val createdAt: Instant = Instant.now()
