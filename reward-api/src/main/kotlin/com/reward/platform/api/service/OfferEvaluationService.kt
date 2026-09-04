@@ -2,6 +2,7 @@ package com.reward.platform.api.service
 
 import com.reward.platform.api.entity.OfferEntity
 import com.reward.platform.api.repository.OfferApplicationRepository
+import com.reward.platform.api.repository.OfferLocationRepository
 import com.reward.platform.api.repository.OfferRepository
 import com.reward.platform.api.repository.OfferSponsorRepository
 import com.reward.platform.api.repository.OfferTargetMemberRepository
@@ -22,6 +23,7 @@ class OfferEvaluationService(
     private val offerRepository: OfferRepository,
     private val offerApplicationRepository: OfferApplicationRepository,
     private val offerSponsorRepository: OfferSponsorRepository,
+    private val offerLocationRepository: OfferLocationRepository,
     private val offerTargetMemberRepository: OfferTargetMemberRepository,
     private val sponsorRepository: SponsorRepository
 ) {
@@ -44,6 +46,7 @@ class OfferEvaluationService(
             )
             .filter { it.category == "AWARD" && it.status == "LAUNCHED" }
             .filter { isInScope(it, sponsorId, locationId, sponsor?.sponsorType, ancestorIds) }
+            .filter { locationMatches(it, locationId) }
             .filter { BigDecimal.valueOf(amount) >= it.minSpend }
             .filter { tierRank >= it.minTierRank }
             .filter { offer -> offer.eligibleDays.isNullOrBlank() || day in offer.eligibleDays.split(',').map { it.trim().uppercase() } }
@@ -61,11 +64,14 @@ class OfferEvaluationService(
     private fun isInScope(offer: OfferEntity, sponsorId: Long, locationId: Long, sponsorType: String?, ancestorIds: Set<Long>) = when (offer.scope) {
         "PROGRAM" -> true
         "SPONSOR" -> sponsorMatches(offer, sponsorId)
-        "LOCATION" -> offer.locationId == locationId
+        "LOCATION" -> offer.locationId == locationId || offerLocationRepository.existsByOfferIdAndLocationId(offer.id, locationId)
         "PARENT" -> offer.sponsorId in ancestorIds
         "PARTNER" -> sponsorType == "PARTNER" && sponsorMatches(offer, sponsorId)
         else -> false
     }
+
+    private fun locationMatches(offer: OfferEntity, locationId: Long): Boolean =
+        offer.allLocations || offerLocationRepository.findByOfferId(offer.id).let { it.isEmpty() || it.any { link -> link.locationId == locationId } }
 
     private fun sponsorMatches(offer: OfferEntity, sponsorId: Long): Boolean =
         offer.sponsorId == sponsorId || offerSponsorRepository.findByOfferId(offer.id).any { it.sponsorId == sponsorId }

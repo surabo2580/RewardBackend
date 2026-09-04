@@ -27,6 +27,7 @@ data class OfferEntity(
     val offerCode: String = "",
     @Column(nullable = false)
     val name: String = "",
+    val subtitle: String? = null,
     val description: String? = null,
     @Column(nullable = false)
     val category: String = "AWARD",
@@ -36,6 +37,22 @@ data class OfferEntity(
     val scope: String = "PROGRAM",
     val sponsorId: Long? = null,
     val locationId: Long? = null,
+    @Column(nullable = false)
+    val allLocations: Boolean = true,
+    // BILLING_SPONSOR: a funding sponsor settles the cost. BIT_SPONSOR: the transacting sponsor absorbs it.
+    @Column(nullable = false)
+    val billingType: String = "BILLING_SPONSOR",
+    val billingSponsorId: Long? = null,
+    @Column(nullable = false)
+    val memberVisibility: Boolean = true,
+    @Column(nullable = false)
+    val offerVisibility: String = "ON_OFFER_LAUNCH",
+    val maxRewardLimitPoints: Long? = null,
+    @Column(nullable = false)
+    val requiresAcceptance: Boolean = false,
+    @Column(nullable = false)
+    val targetAccount: String = "REDEMPTION",
+    val fulfillmentType: String? = null,
     @Column(nullable = false)
     val offerType: String = "MULTIPLIER",
     @Column(nullable = false)
