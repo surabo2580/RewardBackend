@@ -1,6 +1,10 @@
 spring:
   main:
     allow-bean-definition-overriding: true
+  servlet:
+    multipart:
+      max-file-size: ${MEMBER_IMPORT_MAX_FILE_SIZE:2GB}
+      max-request-size: ${MEMBER_IMPORT_MAX_REQUEST_SIZE:2GB}
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:reward_db}
     username: ${POSTGRES_USER:surajdas}
@@ -28,6 +32,11 @@ security:
 ops:
   provisioning:
     key: ${OPS_PROVISIONING_KEY:dev-ops-key}
+
+member-import:
+  storage-directory: ${MEMBER_IMPORT_STORAGE_DIRECTORY:${java.io.tmpdir}/benevo-member-imports}
+  chunk-size: ${MEMBER_IMPORT_CHUNK_SIZE:5000}
+  error-sample-size: ${MEMBER_IMPORT_ERROR_SAMPLE_SIZE:50}
 
 ---
 spring:
