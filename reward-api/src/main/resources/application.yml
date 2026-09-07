@@ -6,9 +6,9 @@ spring:
       max-file-size: ${MEMBER_IMPORT_MAX_FILE_SIZE:2GB}
       max-request-size: ${MEMBER_IMPORT_MAX_REQUEST_SIZE:2GB}
   datasource:
-    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:reward_db}
-    username: ${POSTGRES_USER:surajdas}
-    password: ${POSTGRES_PASSWORD:surajdas}
+    url: ${SPRING_DATASOURCE_URL:${DB_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB:reward_db}}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:${POSTGRES_USER:surajdas}}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:${POSTGRES_PASSWORD:surajdas}}}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -19,7 +19,7 @@ spring:
         format_sql: true
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 security:
   jwt:
