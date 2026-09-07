@@ -19,8 +19,15 @@ data class WalletHistoryEntity(
     val branchId: Long? = null,
     @Column(nullable = false) val memberId: Long = 0,
     @Column(nullable = false) val accountId: Long = 0,
+    @Column(nullable = false, columnDefinition = "varchar(32) default 'REDEMPTION'") val accountType: String = "REDEMPTION",
     @Column(nullable = false) val entryType: String = "CREDIT",
     @Column(nullable = false) val points: Long = 0,
+    val policyId: Long? = null,
+    val policyScope: String? = null,
     val description: String? = null,
+    val expiresAt: Instant? = null,
+    val expiredAt: Instant? = null,
+    @Column(nullable = false, columnDefinition = "bigint default 0") val remainingPoints: Long = 0,
+    @Column(nullable = false, columnDefinition = "boolean default false") val isExpired: Boolean = false,
     @Column(nullable = false) val createdAt: Instant = Instant.now()
 )

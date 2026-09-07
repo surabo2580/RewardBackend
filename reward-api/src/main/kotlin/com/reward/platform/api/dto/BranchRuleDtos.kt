@@ -26,8 +26,12 @@ data class BranchRuleCreateRequest(
     val rewardType: String = "FLAT",
 
     val rewardValue: BigDecimal = BigDecimal.ZERO,
+    val redemptionEarnRate: BigDecimal? = null,
+    val recognitionEarnRate: BigDecimal? = null,
     val isActive: Boolean = true,
-    val priority: Int = 0
+    val priority: Int = 0,
+    val validFrom: Instant? = null,
+    val validUntil: Instant? = null
 )
 
 data class BranchRuleResponse(
@@ -43,8 +47,12 @@ data class BranchRuleResponse(
     val minAmount: BigDecimal?,
     val rewardType: String,
     val rewardValue: BigDecimal,
+    val redemptionEarnRate: BigDecimal?,
+    val recognitionEarnRate: BigDecimal?,
     val isActive: Boolean,
     val priority: Int,
+    val validFrom: Instant?,
+    val validUntil: Instant?,
     val createdAt: Instant
 ) {
     companion object {
@@ -61,8 +69,12 @@ data class BranchRuleResponse(
             minAmount = entity.minAmount,
             rewardType = entity.rewardType,
             rewardValue = entity.rewardValue,
+            redemptionEarnRate = entity.redemptionEarnRate,
+            recognitionEarnRate = entity.recognitionEarnRate,
             isActive = entity.isActive,
             priority = entity.priority,
+            validFrom = entity.validFrom,
+            validUntil = entity.validUntil,
             createdAt = entity.createdAt
         )
     }

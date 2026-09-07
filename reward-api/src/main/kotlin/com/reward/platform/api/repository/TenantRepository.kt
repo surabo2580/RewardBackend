@@ -7,4 +7,5 @@ interface TenantRepository : JpaRepository<TenantEntity, Long>
 {
 	fun findBySlug(slug: String): TenantEntity?
 	fun findByApiKeyHash(apiKeyHash: String): TenantEntity?
+	fun findByStatus(status: String): List<TenantEntity>
 }

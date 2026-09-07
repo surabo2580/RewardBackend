@@ -72,8 +72,12 @@ class BranchRuleController(
             minAmount = request.minAmount,
             rewardType = request.rewardType.uppercase(),
             rewardValue = request.rewardValue,
+            redemptionEarnRate = request.redemptionEarnRate,
+            recognitionEarnRate = request.recognitionEarnRate,
             isActive = request.isActive,
-            priority = request.priority
+            priority = request.priority,
+            validFrom = request.validFrom,
+            validUntil = request.validUntil
         )
         return ResponseEntity.ok(BranchRuleResponse.from(branchRuleRepository.save(rule)))
     }

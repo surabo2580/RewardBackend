@@ -3,6 +3,7 @@ package com.reward.platform.api.service
 import com.reward.platform.api.dto.TierSetup
 import com.reward.platform.api.dto.TenantProvisionRequest
 import com.reward.platform.api.entity.BranchEntity
+import com.reward.platform.api.entity.BranchRuleEntity
 import com.reward.platform.api.entity.ProgramEntity
 import com.reward.platform.api.entity.SponsorEntity
 import com.reward.platform.api.entity.SponsorLocationEntity
@@ -10,6 +11,7 @@ import com.reward.platform.api.entity.SystemUserEntity
 import com.reward.platform.api.entity.TenantEntity
 import com.reward.platform.api.entity.TierEntity
 import com.reward.platform.api.repository.BranchRepository
+import com.reward.platform.api.repository.BranchRuleRepository
 import com.reward.platform.api.repository.ProgramRepository
 import com.reward.platform.api.repository.SponsorRepository
 import com.reward.platform.api.repository.SponsorLocationRepository
@@ -38,6 +40,7 @@ class TenantProvisioningService(
     private val programRepository: ProgramRepository,
     private val tierRepository: TierRepository,
     private val branchRepository: BranchRepository,
+    private val branchRuleRepository: BranchRuleRepository,
     private val sponsorRepository: SponsorRepository,
     private val sponsorLocationRepository: SponsorLocationRepository,
     private val systemUserRepository: SystemUserRepository,
@@ -113,6 +116,22 @@ class TenantProvisioningService(
                 sponsorCode = "HOST_${request.slug.uppercase().replace('-', '_')}",
                 sponsorType = "HOST",
                 status = "ACTIVE"
+            )
+        )
+
+        branchRuleRepository.save(
+            BranchRuleEntity(
+                tenantId = tenant.id,
+                programId = program.id,
+                scope = "PROGRAM",
+                name = "Default purchase earning policy",
+                eventType = "PURCHASE",
+                rewardType = "PERCENTAGE",
+                rewardValue = request.earningRate,
+                redemptionEarnRate = request.earningRate.divide(java.math.BigDecimal(100)),
+                recognitionEarnRate = request.earningRate.divide(java.math.BigDecimal(100)),
+                isActive = true,
+                priority = 0
             )
         )
 
