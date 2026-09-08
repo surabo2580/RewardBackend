@@ -82,7 +82,8 @@ class OnboardingController(
                 user = SystemUserProfileResponse.from(provisioned.systemUser),
                 tenant = TenantResponse.from(provisioned.tenant),
                 program = ProgramResponse.from(provisioned.program),
-                hostSponsor = SponsorResponse.from(provisioned.hostSponsor)
+                hostSponsor = SponsorResponse.from(provisioned.hostSponsor),
+                apiKey = provisioned.apiKey
             )
         )
     }

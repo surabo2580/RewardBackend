@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.beans.factory.annotation.Value
-import com.reward.platform.api.security.ApiKeyService
 
 @CrossOrigin(origins = ["*"])
 @RestController
@@ -31,7 +30,6 @@ class TenantController(
             slug = request.slug ?: request.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-'),
             baseUrl = "https://${request.slug ?: request.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')}.$baseDomain",
             schemaName = request.slug ?: request.name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_'),
-            apiKeyHash = ApiKeyService.hash(ApiKeyService.generate()),
             adminEmail = request.adminEmail,
             status = request.status
         )

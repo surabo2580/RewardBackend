@@ -38,6 +38,8 @@ data class SelfServeRegisterResponse(
     val tenant: TenantResponse,
     val program: ProgramResponse,
     val hostSponsor: SponsorResponse?,
+    val apiKey: String,
+    val apiKeyHeader: String = "X-API-Key",
     val onboardingType: String = "SELF_SERVE"
 )
 
