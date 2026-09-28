@@ -11,4 +11,6 @@ interface PartnerMembershipRepository : JpaRepository<PartnerMembershipEntity, L
     ): PartnerMembershipEntity?
 
     fun findByTenantIdAndSponsorIdOrderByCreatedAtDesc(tenantId: Long, sponsorId: Long): List<PartnerMembershipEntity>
+
+    fun findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId: Long, memberId: Long): List<PartnerMembershipEntity>
 }

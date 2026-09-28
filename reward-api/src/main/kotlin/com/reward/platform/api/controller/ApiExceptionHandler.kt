@@ -30,6 +30,13 @@ class ApiExceptionHandler {
         )
     }
 
+    @ExceptionHandler(NoSuchElementException::class)
+    fun handleNotFound(exception: NoSuchElementException): ResponseEntity<Map<String, String>> {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            mapOf("error" to (exception.message ?: "Resource not found"))
+        )
+    }
+
     @ExceptionHandler(ConstraintViolationException::class)
     fun handleConstraintViolation(exception: ConstraintViolationException): ResponseEntity<Map<String, String>> {
         return ResponseEntity.badRequest().body(

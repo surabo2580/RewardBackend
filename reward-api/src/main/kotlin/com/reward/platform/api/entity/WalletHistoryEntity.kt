@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.hibernate.annotations.ColumnDefault
 import java.time.Instant
 
 @Entity
@@ -19,7 +20,7 @@ data class WalletHistoryEntity(
     val branchId: Long? = null,
     @Column(nullable = false) val memberId: Long = 0,
     @Column(nullable = false) val accountId: Long = 0,
-    @Column(nullable = false, columnDefinition = "varchar(32) default 'REDEMPTION'") val accountType: String = "REDEMPTION",
+    @Column(nullable = false, length = 32) @ColumnDefault("'REDEMPTION'") val accountType: String = "REDEMPTION",
     @Column(nullable = false) val entryType: String = "CREDIT",
     @Column(nullable = false) val points: Long = 0,
     val policyId: Long? = null,
