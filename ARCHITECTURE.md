@@ -548,6 +548,7 @@ Redemption, reward/privilege claims, deal application, reversals, CS adjustments
 - `GET /api/bits`: tenant-scoped filtering and pagination.
 - `GET /api/bits/{id}`: BIT detail with linked ledger entries and reversals.
 - `GET /api/members/{id}/bits` and `/summary`: member activity and aggregate summary.
+- `GET /api/members/{id}/central`: Member Central header, latest five visible BITs, timezone-aware BITs-per-day series, top sponsors, and privilege overview.
 - `GET /api/bits/types` and `/categories`: runtime catalogs.
 
 The frontend Activity Events page and Member 360 Activity module consume these read endpoints. The program-wide feed uses 10-row pages, sponsor/date/category/type/source/status filters, and OR-combined points-action filters (`rewarded`, `redeemed`, `expired`). The detail drawer shows linked ledger entries, offers, issued vouchers, reversals, payload, and failure diagnostics. The frontend does not currently expose direct BIT creation.

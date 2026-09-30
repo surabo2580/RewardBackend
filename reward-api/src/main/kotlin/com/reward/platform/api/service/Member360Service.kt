@@ -2,6 +2,11 @@ package com.reward.platform.api.service
 
 import com.reward.platform.api.dto.HotnoteResponse
 import com.reward.platform.api.dto.Member360Response
+import com.reward.platform.api.dto.MemberCentralResponse
+import com.reward.platform.api.dto.MemberBitSpanPoint
+import com.reward.platform.api.dto.MemberPrivilegeOverviewResponse
+import com.reward.platform.api.dto.MemberSponsorActivityResponse
+import com.reward.platform.api.dto.RecentMemberBitResponse
 import com.reward.platform.api.dto.MemberBalanceDetailResponse
 import com.reward.platform.api.dto.MemberBalancesResponse
 import com.reward.platform.api.dto.MemberBookingCreateRequest
@@ -39,6 +44,7 @@ import com.reward.platform.api.entity.ProgramEntity
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
 import com.reward.platform.api.repository.AccountRepository
+import com.reward.platform.api.repository.BitRepository
 import com.reward.platform.api.repository.MemberBookingRepository
 import com.reward.platform.api.repository.MemberLinkRepository
 import com.reward.platform.api.repository.MemberRepository
@@ -61,6 +67,8 @@ import java.math.BigDecimal
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -86,7 +94,8 @@ class Member360Service(
     private val memberBookingRepository: MemberBookingRepository,
     private val ticketRepository: MemberServiceTicketRepository,
     private val pointExpiryPolicyService: PointExpiryPolicyService,
-    private val bitService: BitService
+    private val bitService: BitService,
+    private val bitRepository: BitRepository
 ) {
     private val random = SecureRandom()
 
@@ -153,6 +162,72 @@ class Member360Service(
                 activeCards = membershipCardRepository.findByTenantIdAndMemberIdOrderByIssuedAtDesc(tenantId, memberId).count { it.status == "ACTIVE" }.toLong()
             ),
             hotnotes = openTickets.filter { it.isHotnote }.map(ServiceTicketResponse::from)
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun central(tenantId: Long, memberId: Long, programId: Long?): MemberCentralResponse {
+        val member = requireMember(tenantId, memberId)
+        val program = resolveProgram(tenantId, programId)
+        val zone = runCatching { ZoneId.of(program?.timezone ?: "UTC") }.getOrDefault(ZoneId.of("UTC"))
+        val visibleStatuses = setOf("COMPLETED", "PROCESSED", "FAILED", "ON_HOLD", "REVERSED", "PARTIALLY_REVERSED", "REJECTED")
+        val bits = bitRepository.findByTenantIdAndMemberIdOrderByInteractionAtDesc(tenantId, memberId)
+            .filter { it.status in visibleStatuses }
+        val names = sponsorNames(tenantId, bits.mapNotNull { it.bitSponsorId })
+        val transactionsByBit = if (bits.isEmpty()) emptyMap() else transactionRepository
+            .findByTenantIdAndBitIdInOrderByCreatedAtAsc(tenantId, bits.map { it.id })
+            .groupBy { it.bitId }
+        val last5 = bits.take(5).map { bit ->
+            val ledger = transactionsByBit[bit.id].orEmpty()
+            RecentMemberBitResponse(
+                bitId = bit.id,
+                sponsorName = bit.bitSponsorId?.let(names::get),
+                bitType = bit.bitType,
+                bitCategory = bit.bitCategory,
+                interactionAt = bit.interactionAt,
+                pointsDelta = if (ledger.isEmpty()) null else bit.redemptionPointsDelta + bit.recognitionPointsDelta
+            )
+        }
+        val daily = bits.groupBy { it.interactionAt.atZone(zone).toLocalDate() }
+        val bitSpan = daily.entries.sortedBy { it.key }.map { (date, dayBits) ->
+            MemberBitSpanPoint(date, dayBits.size, dayBits.map { it.bitType }.distinct().sorted())
+        }
+        val topSponsors = bits.filter { it.bitSponsorId != null }
+            .groupBy { it.bitSponsorId!! }
+            .mapNotNull { (sponsorId, sponsorBits) ->
+                names[sponsorId]?.let { sponsorName ->
+                    MemberSponsorActivityResponse(
+                        sponsorId = sponsorId,
+                        sponsorName = sponsorName,
+                        bitCount = sponsorBits.size.toLong(),
+                        totalAmount = sponsorBits.fold(BigDecimal.ZERO) { total, bit -> total + bit.grossAmount },
+                        points = sponsorBits.filter { transactionsByBit[it.id].orEmpty().isNotEmpty() }
+                            .sumOf { it.redemptionPointsDelta + it.recognitionPointsDelta }
+                    )
+                }
+            }
+            .sortedByDescending { it.bitCount }
+            .take(5)
+        val eligiblePrivileges = if (program == null) emptyList() else offers(tenantId, memberId, program.id)
+            .filter { it.category == "PRIVILEGE" && it.eligible }
+        val claimedPrivileges = transactionRepository.findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId, memberId)
+            .count { it.transactionType == "PRIVILEGE_CLAIM" && it.status == "APPROVED" }
+            .toLong()
+        val lastBitAt = bits.firstOrNull()?.interactionAt
+        return MemberCentralResponse(
+            header = profileOf(member),
+            daysSinceLastBit = lastBitAt?.let { ChronoUnit.DAYS.between(it.atZone(zone).toLocalDate(), LocalDate.now(zone)).coerceAtLeast(0) },
+            firstBitAt = bits.lastOrNull()?.interactionAt,
+            lastBitAt = lastBitAt,
+            last5Bits = last5,
+            bitSpan = bitSpan,
+            topSponsors = topSponsors,
+            privilegesOverview = MemberPrivilegeOverviewResponse(
+                currentTier = member.tier,
+                eligibleCount = eligiblePrivileges.size,
+                claimedCount = claimedPrivileges,
+                eligiblePrivileges = eligiblePrivileges
+            )
         )
     }
 

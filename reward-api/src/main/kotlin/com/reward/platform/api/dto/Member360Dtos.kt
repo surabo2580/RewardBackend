@@ -125,6 +125,47 @@ data class Member360Response(
     val hotnotes: List<ServiceTicketResponse>
 )
 
+data class MemberCentralResponse(
+    val header: MemberProfileResponse,
+    val daysSinceLastBit: Long?,
+    val firstBitAt: Instant?,
+    val lastBitAt: Instant?,
+    val last5Bits: List<RecentMemberBitResponse>,
+    val bitSpan: List<MemberBitSpanPoint>,
+    val topSponsors: List<MemberSponsorActivityResponse>,
+    val privilegesOverview: MemberPrivilegeOverviewResponse
+)
+
+data class RecentMemberBitResponse(
+    val bitId: Long,
+    val sponsorName: String?,
+    val bitType: String,
+    val bitCategory: String,
+    val interactionAt: Instant,
+    val pointsDelta: Long?
+)
+
+data class MemberBitSpanPoint(
+    val date: LocalDate,
+    val bitCount: Int,
+    val bitTypes: List<String>
+)
+
+data class MemberSponsorActivityResponse(
+    val sponsorId: Long,
+    val sponsorName: String,
+    val bitCount: Long,
+    val totalAmount: BigDecimal,
+    val points: Long
+)
+
+data class MemberPrivilegeOverviewResponse(
+    val currentTier: String,
+    val eligibleCount: Int,
+    val claimedCount: Long,
+    val eligiblePrivileges: List<MemberOfferResponse>
+)
+
 data class PointLotResponse(
     val id: Long,
     val accountType: String,

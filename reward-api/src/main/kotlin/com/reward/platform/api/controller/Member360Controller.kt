@@ -2,6 +2,7 @@ package com.reward.platform.api.controller
 
 import com.reward.platform.api.dto.HotnoteResponse
 import com.reward.platform.api.dto.Member360Response
+import com.reward.platform.api.dto.MemberCentralResponse
 import com.reward.platform.api.dto.MemberBalanceDetailResponse
 import com.reward.platform.api.dto.MemberBookingCreateRequest
 import com.reward.platform.api.dto.MemberBookingResponse
@@ -64,6 +65,13 @@ class Member360Controller(
         @RequestAttribute(name = "programId", required = false) programId: Long?,
         @PathVariable memberId: Long
     ): ResponseEntity<Member360Response> = ResponseEntity.ok(member360Service.overview(tenantId, memberId, programId))
+
+    @GetMapping("/{memberId:\\d+}/central")
+    fun central(
+        @RequestAttribute("tenantId") tenantId: Long,
+        @RequestAttribute(name = "programId", required = false) programId: Long?,
+        @PathVariable memberId: Long
+    ): ResponseEntity<MemberCentralResponse> = ResponseEntity.ok(member360Service.central(tenantId, memberId, programId))
 
     @PutMapping("/{memberId:\\d+}/profile")
     fun updateProfile(
