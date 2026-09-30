@@ -49,16 +49,19 @@ class BitController(
     fun list(
         @RequestAttribute("tenantId") tenantId: Long,
         @RequestParam(required = false) memberId: Long?,
+        @RequestParam(required = false) type: String?,
         @RequestParam(required = false) bitType: String?,
         @RequestParam(required = false) category: String?,
         @RequestParam(required = false) sponsorId: Long?,
         @RequestParam(required = false) status: String?,
+        @RequestParam(required = false) source: String?,
+        @RequestParam(required = false) pointsAction: String?,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) from: Instant?,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) to: Instant?,
         @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "50") size: Int
+        @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<BitPageResponse> = ResponseEntity.ok(
-        bitQueryService.list(tenantId, BitFilter(memberId, bitType, category, sponsorId, status, from, to), page, size)
+        bitQueryService.list(tenantId, BitFilter(memberId, type ?: bitType, category, sponsorId, status, source, pointsAction, from, to), page, size)
     )
 
     @GetMapping("/bits/{bitId}")

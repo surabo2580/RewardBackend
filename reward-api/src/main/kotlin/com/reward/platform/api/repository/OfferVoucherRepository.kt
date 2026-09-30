@@ -9,5 +9,6 @@ interface OfferVoucherRepository : JpaRepository<OfferVoucherEntity, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findFirstByTenantIdAndOfferIdAndIsIssuedFalse(tenantId: Long, offerId: Long): OfferVoucherEntity?
     fun findByTenantIdAndReferenceId(tenantId: Long, referenceId: String): OfferVoucherEntity?
+    fun findByTenantIdAndReferenceIdIn(tenantId: Long, referenceIds: Collection<String>): List<OfferVoucherEntity>
     fun findByTenantIdAndIssuedToMemberIdOrderByIssuedAtDesc(tenantId: Long, memberId: Long): List<OfferVoucherEntity>
 }

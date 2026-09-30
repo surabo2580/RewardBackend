@@ -78,10 +78,34 @@ class OfferExecutionController(
         }
         val offer = eligibleOffer(tenantId, offerId, "REWARD")
         val member = memberRepository.findByTenantIdAndExternalUserId(tenantId, request.memberId.trim()) ?: return ResponseEntity.badRequest().body(rewardError("MEMBER_NOT_FOUND", "Member not found"))
-        validateMemberEligibility(offer.id, offer, member.id, tenantId)
-        val account = accountRepository.findLockedByTenantIdAndMemberIdAndAccountType(tenantId, member.id, "REDEMPTION") ?: return ResponseEntity.badRequest().body(rewardError("ACCOUNT_NOT_FOUND", "Member has no redemption account"))
+        try {
+            validateMemberEligibility(offer.id, offer, member.id, tenantId)
+        } catch (failure: IllegalArgumentException) {
+            val message = failure.message ?: "Member is not eligible for this reward"
+            bitService.recordFailed(
+                BitCommand(tenantId = tenantId, memberId = member.id, bitType = BitType.REWARD_CLAIM, reference = reference, programId = offer.programId, bitSponsorId = offer.sponsorId, billingSponsorId = offer.billingSponsorId, channel = "MEMBER_CLAIM", appliedOfferIds = listOf(offer.id), description = "Reward claim failed: $message"),
+                "OFFER_INELIGIBLE",
+                message
+            )
+            return ResponseEntity.badRequest().body(rewardError("OFFER_INELIGIBLE", message))
+        }
+        val account = accountRepository.findLockedByTenantIdAndMemberIdAndAccountType(tenantId, member.id, "REDEMPTION") ?: run {
+            val message = "Member has no redemption account"
+            bitService.recordFailed(
+                BitCommand(tenantId = tenantId, memberId = member.id, bitType = BitType.REWARD_CLAIM, reference = reference, programId = offer.programId, bitSponsorId = offer.sponsorId, billingSponsorId = offer.billingSponsorId, channel = "MEMBER_CLAIM", appliedOfferIds = listOf(offer.id), description = "Reward claim failed: $message"),
+                "ACCOUNT_NOT_FOUND",
+                message
+            )
+            return ResponseEntity.badRequest().body(rewardError("ACCOUNT_NOT_FOUND", message))
+        }
         if (account.availablePoints < offer.pointsRequired || !redemptionLotService.consume(tenantId, member.id, offer.pointsRequired)) {
-            return ResponseEntity.badRequest().body(rewardError("INSUFFICIENT_BALANCE", "Insufficient unexpired redemption points"))
+            val message = "Insufficient unexpired redemption points"
+            bitService.recordFailed(
+                BitCommand(tenantId = tenantId, memberId = member.id, bitType = BitType.REWARD_CLAIM, reference = reference, programId = offer.programId, bitSponsorId = offer.sponsorId, billingSponsorId = offer.billingSponsorId, channel = "MEMBER_CLAIM", appliedOfferIds = listOf(offer.id), description = "Reward claim failed: $message"),
+                "INSUFFICIENT_BALANCE",
+                message
+            )
+            return ResponseEntity.badRequest().body(rewardError("INSUFFICIENT_BALANCE", message))
         }
         val voucher = offerVoucherRepository.findFirstByTenantIdAndOfferIdAndIsIssuedFalse(tenantId, offer.id)
         val updatedAccount = accountRepository.save(account.copy(availablePoints = account.availablePoints - offer.pointsRequired, redeemedPoints = account.redeemedPoints + offer.pointsRequired, updatedAt = Instant.now()))

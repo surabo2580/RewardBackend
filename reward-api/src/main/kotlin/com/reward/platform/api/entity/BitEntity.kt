@@ -72,8 +72,11 @@ data class BitEntity(
     val locationId: Long? = null,
     val branchId: Long? = null,
     @Column(nullable = false, length = 30) val channel: String = "POS",
-    // COMPLETED | PENDING | REVERSED | PARTIALLY_REVERSED | REJECTED
-    @Column(nullable = false, length = 20) val status: String = "COMPLETED",
+    // COMPLETED | PENDING | FAILED | ON_HOLD | REVERSED | PARTIALLY_REVERSED | REJECTED
+    @Column(nullable = false, length = 30) val status: String = "COMPLETED",
+    @Column(length = 50) val errorCode: String? = null,
+    @Column(length = 2000) val errorMessage: String? = null,
+    @Column(length = 30) val bitSource: String? = null,
     @Column(nullable = false, precision = 14, scale = 2) val grossAmount: BigDecimal = BigDecimal.ZERO,
     @Column(nullable = false, precision = 14, scale = 2) val discountAmount: BigDecimal = BigDecimal.ZERO,
     @Column(nullable = false, precision = 14, scale = 2) val netAmount: BigDecimal = BigDecimal.ZERO,

@@ -74,9 +74,16 @@ class RedemptionController(
             )
         val account = accountRepository.findLockedByTenantIdAndMemberIdAndAccountType(
             request.tenantId, member.id, "REDEMPTION"
-        ) ?: return ResponseEntity.badRequest().body(
+        ) ?: run {
+            bitService.recordFailed(
+                failedRedemptionCommand(request, member.id, sponsor.id, "ACCOUNT_NOT_FOUND", "Member has no redemption account"),
+                "ACCOUNT_NOT_FOUND",
+                "Member has no redemption account"
+            )
+            return ResponseEntity.badRequest().body(
             RedemptionResponse(false, "ACCOUNT_NOT_FOUND", pointsRedeemed = 0, discountAmount = "0", remainingBalance = 0, message = "Member has no redemption account")
-        )
+            )
+        }
 
         // Recheck after acquiring the member account lock so retries cannot debit twice.
         transactionRepository.findByTenantIdAndReferenceIdAndTransactionType(request.tenantId, request.referenceId.trim(), "REDEEM")?.let {
@@ -84,6 +91,12 @@ class RedemptionController(
         }
 
         if (account.availablePoints < request.pointsToRedeem) {
+            val message = "Insufficient redemption points. Available: ${account.availablePoints}"
+            bitService.recordFailed(
+                failedRedemptionCommand(request, member.id, sponsor.id, "INSUFFICIENT_BALANCE", message),
+                "INSUFFICIENT_BALANCE",
+                message
+            )
             return ResponseEntity.badRequest().body(
                 RedemptionResponse(
                     success = false,
@@ -104,6 +117,12 @@ class RedemptionController(
             Instant.now()
         )
         if (pointLots.sumOf { it.remainingPoints } < request.pointsToRedeem) {
+            val message = "Insufficient unexpired redemption points. Run point expiry processing and retry."
+            bitService.recordFailed(
+                failedRedemptionCommand(request, member.id, sponsor.id, "INSUFFICIENT_UNEXPIRED_BALANCE", message),
+                "INSUFFICIENT_UNEXPIRED_BALANCE",
+                message
+            )
             return ResponseEntity.badRequest().body(
                 RedemptionResponse(
                     success = false,
@@ -201,5 +220,26 @@ class RedemptionController(
         discountAmount = transaction.discountAmount?.toPlainString() ?: "0",
         remainingBalance = 0,
         message = "This redemption reference was already processed"
+    )
+
+    private fun failedRedemptionCommand(
+        request: RedemptionRequest,
+        memberId: Long,
+        sponsorId: Long,
+        errorCode: String,
+        errorMessage: String
+    ) = BitCommand(
+        tenantId = request.tenantId,
+        memberId = memberId,
+        bitType = BitType.REDEMPTION,
+        reference = request.referenceId,
+        programId = request.programId,
+        bitSponsorId = sponsorId,
+        locationId = request.locationId,
+        channel = request.channel,
+        status = "FAILED",
+        errorCode = errorCode,
+        errorMessage = errorMessage,
+        description = "Redemption failed: $errorMessage"
     )
 }

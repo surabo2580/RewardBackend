@@ -11,6 +11,8 @@ data class BitResponse(
     val bitTypeLabel: String,
     val bitCategory: String,
     val status: String,
+    val errorCode: String?,
+    val errorMessage: String?,
     val memberId: Long,
     val programId: Long?,
     val bitSponsorId: Long?,
@@ -20,6 +22,7 @@ data class BitResponse(
     val locationId: Long?,
     val branchId: Long?,
     val channel: String,
+    val bitSource: String?,
     val grossAmount: BigDecimal,
     val discountAmount: BigDecimal,
     val netAmount: BigDecimal,
@@ -48,11 +51,38 @@ data class BitLedgerEntry(
 data class BitDetailResponse(
     val bit: BitResponse,
     val ledger: List<BitLedgerEntry>,
-    val reversals: List<BitResponse>
+    val reversals: List<BitResponse>,
+    val offers: List<BitOfferSummary> = emptyList(),
+    val vouchers: List<BitVoucherSummary> = emptyList()
+)
+
+data class BitOfferSummary(val id: Long, val offerCode: String, val name: String, val category: String)
+
+data class BitVoucherSummary(val id: Long, val offerId: Long, val voucherCode: String, val status: String, val expiresAt: Instant?)
+
+data class BitListRowResponse(
+    val bitId: Long,
+    val bitReference: String,
+    val interactionDate: Instant,
+    val sponsorName: String?,
+    val memberCode: String,
+    val bitCategory: String,
+    val bitType: String,
+    val bitTypeLabel: String,
+    val offerName: String?,
+    val pointsDelta: Long?,
+    val redemptionPoints: Long,
+    val recognitionPoints: Long,
+    val rewardsEarned: Int,
+    val rewardsAvailed: Int?,
+    val status: String,
+    val errorCode: String?,
+    val errorMessage: String?,
+    val source: String
 )
 
 data class BitPageResponse(
-    val items: List<BitResponse>,
+    val items: List<BitListRowResponse>,
     val page: Int,
     val size: Int,
     val totalItems: Long,

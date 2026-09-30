@@ -538,7 +538,7 @@ Direct BIT ingestion uses an explicit allowlist for non-balance interactions. Pu
 
 ### Processing and reversal flow
 
-The current purchase path is synchronous: `/api/events` validates tenant/member/program/sponsor/location, calculates policy/tier/offer points, updates accounts, then records a BIT and links the resulting `EARN` transaction by `bitId`; account, BIT, transaction, and point-lot writes are in the controller transaction. Thus the BIT is currently an audit record of the processed interaction, not an input object consumed by the rule engine. Failed requests that roll back do not leave a failed-BIT record.
+The current purchase path is synchronous: `/api/events` validates tenant/member/program/sponsor/location, calculates policy/tier/offer points, updates accounts, then records a BIT and links the resulting `EARN` transaction by `bitId`; account, BIT, transaction, and point-lot writes are in the controller transaction. Thus the BIT is currently an audit record of the processed interaction, not an input object consumed by the rule engine. Known redemption and reward-claim rejections (such as insufficient balance or ineligibility) are saved as `FAILED` BITs with an error code/message. Unexpected exceptions that roll back the enclosing transaction still do not leave a failed-BIT record.
 
 Redemption, reward/privilege claims, deal application, reversals, CS adjustments, tier changes, profile changes, bookings, enrollment, and point expiry also write BITs from their owning workflow. Reversal writes a new BIT linked to the original BIT and marks the original as fully or partially reversed. Expiry creates an `EXPIRATION` BIT and links its `EXPIRE` transaction.
 
@@ -550,10 +550,10 @@ Redemption, reward/privilege claims, deal application, reversals, CS adjustments
 - `GET /api/members/{id}/bits` and `/summary`: member activity and aggregate summary.
 - `GET /api/bits/types` and `/categories`: runtime catalogs.
 
-The frontend Activity Events page and Member 360 profile timeline consume these read endpoints. The frontend does not currently expose direct BIT creation.
+The frontend Activity Events page and Member 360 Activity module consume these read endpoints. The program-wide feed uses 10-row pages, sponsor/date/category/type/source/status filters, and OR-combined points-action filters (`rewarded`, `redeemed`, `expired`). The detail drawer shows linked ledger entries, offers, issued vouchers, reversals, payload, and failure diagnostics. The frontend does not currently expose direct BIT creation.
 
 ### Migration and known next step
 
-`manual_bit_category_migration.sql` reclassifies existing rows after deploying the matching enum update. `manual_bit_backfill_migration.sql` backfills historic enrollment/transaction BITs and links transactions; run it only after the application has created the relevant tables/columns. These scripts are manual PostgreSQL operations and are not run automatically by Hibernate.
+`manual_bit_category_migration.sql` reclassifies existing rows after deploying the matching enum update. `manual_bit_feed_migration.sql` adds failure/source columns and feed indexes. `manual_bit_backfill_migration.sql` backfills historic enrollment/transaction BITs and links transactions; run it only after the application has created the relevant tables/columns. These scripts are manual PostgreSQL operations and are not run automatically by Hibernate.
 
 The current design does not yet persist failed intake attempts, run fraud decisions, dispatch an outbox, or execute BIT ingestion asynchronously. Moving all processing to a durable `RECEIVED` → validation/risk → rule execution → `PROCESSED` lifecycle requires a separate processing boundary and failure-state contract; it should not be implemented by merely moving the existing `record()` call earlier inside the same transaction.
