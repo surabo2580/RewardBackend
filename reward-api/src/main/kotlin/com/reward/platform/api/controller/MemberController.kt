@@ -7,6 +7,9 @@ import com.reward.platform.api.entity.MemberEntity
 import com.reward.platform.api.repository.MemberImportJobRepository
 import com.reward.platform.api.repository.MemberRepository
 import com.reward.platform.api.service.MemberImportService
+import com.reward.platform.api.service.BitCommand
+import com.reward.platform.api.service.BitService
+import com.reward.platform.api.entity.BitType
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
@@ -26,10 +29,12 @@ import org.springframework.web.multipart.MultipartFile
 class MemberController(
     private val memberRepository: MemberRepository,
     private val memberImportService: MemberImportService,
-    private val memberImportJobRepository: MemberImportJobRepository
+    private val memberImportJobRepository: MemberImportJobRepository,
+    private val bitService: BitService
 ) {
 
     @PostMapping
+    @org.springframework.transaction.annotation.Transactional
     fun createMember(
         @RequestAttribute("tenantId") tenantId: Long,
         @Valid @RequestBody request: MemberCreateRequest
@@ -42,7 +47,18 @@ class MemberController(
             email = request.email,
             tier = request.tier
         )
-        return ResponseEntity.ok(MemberResponse.from(memberRepository.save(entity)))
+        val saved = memberRepository.save(entity)
+        bitService.record(
+            BitCommand(
+                tenantId = tenantId,
+                memberId = saved.id,
+                bitType = BitType.ENROLL,
+                reference = "ENROLL-${saved.externalUserId}",
+                channel = "API",
+                description = "Member enrolled in tier ${saved.tier}"
+            )
+        )
+        return ResponseEntity.ok(MemberResponse.from(saved))
     }
 
     @GetMapping

@@ -135,6 +135,30 @@ class MemberImportWorker(
                 }
             }
         )
+        jdbcTemplate.batchUpdate(
+            """INSERT INTO reward_bits (tenant_id, program_id, bit_reference, bit_type, bit_category, member_id, bit_sponsor_id, billing_sponsor_id,
+                   channel, status, gross_amount, discount_amount, net_amount, currency, redemption_points_delta, recognition_points_delta,
+                   description, interaction_at, created_at)
+               SELECT member.tenant_id, program.id, 'ENROLL-' || member.external_user_id, 'ENROLL', 'ENROLLMENT', member.id, sponsor.id, sponsor.id,
+                   'BATCH_IMPORT', 'COMPLETED', 0, 0, 0, program.currency, 0, 0,
+                   'Member enrolled via batch import', member.created_at, CURRENT_TIMESTAMP
+               FROM reward_members member
+               LEFT JOIN LATERAL (
+                   SELECT p.id, p.currency FROM reward_programs p WHERE p.tenant_id = member.tenant_id ORDER BY p.created_at DESC LIMIT 1
+               ) program ON TRUE
+               LEFT JOIN LATERAL (
+                   SELECT s.id FROM reward_sponsors s WHERE s.tenant_id = member.tenant_id AND s.program_id = program.id
+                   ORDER BY (s.sponsor_type = 'HOST') DESC, s.name LIMIT 1
+               ) sponsor ON TRUE
+               WHERE member.tenant_id = ? AND member.external_user_id = ?
+               ON CONFLICT (tenant_id, bit_reference, bit_type) DO NOTHING""", object : BatchPreparedStatementSetter {
+                override fun getBatchSize() = rows.size
+                override fun setValues(statement: java.sql.PreparedStatement, index: Int) {
+                    statement.setLong(1, tenantId)
+                    statement.setString(2, rows[index].externalUserId)
+                }
+            }
+        )
         ChunkResult(inserted, rows.size - inserted)
     } ?: ChunkResult(0, rows.size.toLong())
 

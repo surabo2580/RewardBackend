@@ -28,6 +28,7 @@ import com.reward.platform.api.dto.ServiceTicketUpdateRequest
 import com.reward.platform.api.dto.TierOverrideRequest
 import com.reward.platform.api.dto.TierSummaryResponse
 import com.reward.platform.api.entity.AccountEntity
+import com.reward.platform.api.entity.BitType
 import com.reward.platform.api.entity.MemberBookingEntity
 import com.reward.platform.api.entity.MemberEntity
 import com.reward.platform.api.entity.MemberLinkEntity
@@ -84,7 +85,8 @@ class Member360Service(
     private val membershipCardRepository: MembershipCardRepository,
     private val memberBookingRepository: MemberBookingRepository,
     private val ticketRepository: MemberServiceTicketRepository,
-    private val pointExpiryPolicyService: PointExpiryPolicyService
+    private val pointExpiryPolicyService: PointExpiryPolicyService,
+    private val bitService: BitService
 ) {
     private val random = SecureRandom()
 
@@ -194,6 +196,26 @@ class Member360Service(
                 status = request.status?.uppercase() ?: member.status
             )
         )
+        val changedFields = listOf(
+            "email" to (updated.email != member.email), "firstName" to (updated.firstName != member.firstName),
+            "lastName" to (updated.lastName != member.lastName), "phone" to (updated.phone != member.phone),
+            "alternatePhone" to (updated.alternatePhone != member.alternatePhone), "dateOfBirth" to (updated.dateOfBirth != member.dateOfBirth),
+            "gender" to (updated.gender != member.gender), "nationality" to (updated.nationality != member.nationality),
+            "preferredLanguage" to (updated.preferredLanguage != member.preferredLanguage),
+            "enrollingSponsorId" to (updated.enrollingSponsorId != member.enrollingSponsorId), "status" to (updated.status != member.status)
+        ).filter { it.second }.map { it.first }
+        if (changedFields.isNotEmpty()) {
+            bitService.record(
+                BitCommand(
+                    tenantId = tenantId,
+                    memberId = member.id,
+                    bitType = BitType.PROFILE_UPDATE,
+                    channel = "CS_CONSOLE",
+                    description = "Profile updated: ${changedFields.joinToString()}",
+                    payload = mapOf("changedFields" to changedFields)
+                )
+            )
+        }
         return profileOf(updated)
     }
 
@@ -442,6 +464,34 @@ class Member360Service(
             require(sponsor != null && sponsor.tenantId == tenantId) { "Sponsor does not belong to tenant" }
             sponsor.name
         }
+        val bookingType = request.bookingType.uppercase()
+        val program = resolveProgram(tenantId, programId)
+        val currency = request.currency?.ifBlank { null } ?: program?.currency ?: "INR"
+        bitService.record(
+            BitCommand(
+                tenantId = tenantId,
+                memberId = memberId,
+                bitType = when (bookingType) {
+                    "HOTEL_STAY" -> BitType.HOTEL_STAY
+                    "DINING" -> BitType.DINING
+                    "POS_RETAIL" -> BitType.PURCHASE
+                    else -> BitType.EVENT
+                },
+                reference = reference,
+                programId = program?.id,
+                bitSponsorId = request.sponsorId,
+                locationId = request.locationId,
+                channel = "CS_CONSOLE",
+                status = if (status == "CANCELLED" || status == "NO_SHOW") "REJECTED" else if (status == "COMPLETED") "COMPLETED" else "PENDING",
+                grossAmount = request.totalAmount,
+                currency = currency,
+                description = "$bookingType booking $reference ($status)",
+                payload = mapOf(
+                    "checkInDate" to request.checkInDate?.toString(), "checkOutDate" to request.checkOutDate?.toString(),
+                    "roomType" to request.roomType, "roomNumber" to request.roomNumber
+                )
+            )
+        )
         val saved = memberBookingRepository.save(
             MemberBookingEntity(
                 tenantId = tenantId,
@@ -449,14 +499,14 @@ class Member360Service(
                 bookingReference = reference,
                 sponsorId = request.sponsorId,
                 locationId = request.locationId,
-                bookingType = request.bookingType.uppercase(),
+                bookingType = bookingType,
                 status = status,
                 checkInDate = request.checkInDate,
                 checkOutDate = request.checkOutDate,
                 roomType = request.roomType,
                 roomNumber = request.roomNumber,
                 totalAmount = request.totalAmount,
-                currency = request.currency?.ifBlank { null } ?: resolveProgram(tenantId, programId)?.currency ?: "INR",
+                currency = currency,
                 notes = request.notes
             )
         )
@@ -557,6 +607,21 @@ class Member360Service(
         }
 
         val transactionType = "ADJUSTMENT_$direction"
+        val signedPoints = if (direction == "CREDIT") request.points else -request.points
+        val bit = bitService.record(
+            BitCommand(
+                tenantId = tenantId,
+                memberId = member.id,
+                bitType = BitType.CS_ADJUSTMENT,
+                programId = program?.id,
+                channel = "CS_CONSOLE",
+                redemptionPointsDelta = signedPoints,
+                description = "CS $direction adjustment (${request.category.uppercase()}): $reason",
+                payload = mapOf("category" to request.category.uppercase(), "reason" to reason),
+                createdByUserId = authUserId,
+                interactionAt = now
+            )
+        )
         val transaction = transactionRepository.save(
             TransactionEntity(
                 tenantId = tenantId,
@@ -569,6 +634,7 @@ class Member360Service(
                 status = "APPROVED",
                 referenceId = "ADJ-${UUID.randomUUID()}",
                 channel = "CS_CONSOLE",
+                bitId = bit.id,
                 createdAt = now
             )
         )
@@ -596,7 +662,7 @@ class Member360Service(
             status = "RESOLVED",
             subject = "${if (direction == "CREDIT") "+" else "-"}${request.points} pts ${request.category.uppercase()}",
             description = reason,
-            pointsAdjusted = if (direction == "CREDIT") request.points else -request.points,
+            pointsAdjusted = signedPoints,
             resolutionNotes = "Transaction #${transaction.id}"
         )
         return PointAdjustmentResponse(transaction.id, direction, request.points, updatedAccount.availablePoints, ServiceTicketResponse.from(ticket))
@@ -611,6 +677,18 @@ class Member360Service(
             ?: throw IllegalArgumentException("Tier '${request.targetTier}' is not defined for this program")
         require(target.name != member.tier) { "Member is already in tier ${target.name}" }
         memberRepository.save(member.copy(tier = target.name))
+        bitService.record(
+            BitCommand(
+                tenantId = tenantId,
+                memberId = member.id,
+                bitType = BitType.TIER_CHANGE,
+                programId = program.id,
+                channel = "CS_CONSOLE",
+                description = "Tier override ${member.tier} → ${target.name}",
+                payload = mapOf("previousTier" to member.tier, "currentTier" to target.name, "reason" to request.reason.trim(), "source" to "CS_OVERRIDE"),
+                createdByUserId = authUserId
+            )
+        )
         saveTicket(
             tenantId = tenantId,
             memberId = member.id,

@@ -14,7 +14,8 @@ data class TierEvaluationResult(
 @Service
 class TierEvaluationService(
     private val tierRepository: TierRepository,
-    private val memberRepository: MemberRepository
+    private val memberRepository: MemberRepository,
+    private val bitService: BitService
 ) {
 
     fun currentMultiplier(member: MemberEntity, programId: Long): BigDecimal =
@@ -41,6 +42,17 @@ class TierEvaluationService(
         val upgraded = member.tier != eligibleTier.name
         if (upgraded) {
             memberRepository.save(member.copy(tier = eligibleTier.name))
+            bitService.record(
+                BitCommand(
+                    tenantId = member.tenantId,
+                    memberId = member.id,
+                    bitType = com.reward.platform.api.entity.BitType.TIER_CHANGE,
+                    programId = programId,
+                    channel = "SYSTEM",
+                    description = "Tier qualified ${member.tier} → ${eligibleTier.name}",
+                    payload = mapOf("previousTier" to member.tier, "currentTier" to eligibleTier.name, "recognitionPoints" to recognitionPoints, "source" to "QUALIFICATION")
+                )
+            )
         }
 
         return TierEvaluationResult(eligibleTier.name, upgraded)

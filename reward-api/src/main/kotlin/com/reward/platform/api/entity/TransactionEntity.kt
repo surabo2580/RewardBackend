@@ -72,6 +72,8 @@ data class TransactionEntity(
 
     val originalTransactionId: Long? = null,
 
+    val bitId: Long? = null,
+
     @Column(nullable = false)
     val channel: String = "POS",
 

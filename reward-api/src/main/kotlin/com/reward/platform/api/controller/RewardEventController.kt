@@ -20,6 +20,8 @@ import com.reward.platform.api.repository.ProgramRepository
 import com.reward.platform.api.repository.SponsorRepository
 import com.reward.platform.api.repository.SponsorLocationRepository
 import com.reward.platform.api.service.RewardPolicyResolver
+import com.reward.platform.api.service.BitCommand
+import com.reward.platform.api.service.BitService
 import com.reward.platform.api.service.OfferEvaluationService
 import com.reward.platform.api.service.PointExpiryPolicyService
 import com.reward.platform.api.service.TierEvaluationService
@@ -53,7 +55,8 @@ class RewardEventController(
     private val offerEvaluationService: OfferEvaluationService,
     private val pointExpiryPolicyService: PointExpiryPolicyService,
     private val rewardPolicyResolver: RewardPolicyResolver,
-    private val tierEvaluationService: TierEvaluationService
+    private val tierEvaluationService: TierEvaluationService,
+    private val bitService: BitService
 ) {
     companion object {
         private const val DEFAULT_BRANCH_CODE = "DEFAULT_MAIN"
@@ -229,6 +232,29 @@ class RewardEventController(
 
         val tierResult = tierEvaluationService.evaluate(member, request.programId, updatedRecognitionAccount.lifetimeEarnedPoints)
 
+        val appliedOffers = offerRepository.findAllById(offerResult.offerIds)
+        val bit = bitService.record(
+            BitCommand(
+                tenantId = request.tenantId,
+                memberId = member.id,
+                bitType = bitService.bitTypeForEvent(eventType, request.amount),
+                reference = referenceId,
+                programId = request.programId,
+                bitSponsorId = sponsor.id,
+                billingSponsorId = appliedOffers.firstNotNullOfOrNull { it.billingSponsorId },
+                locationId = location.id,
+                branchId = branch.id,
+                channel = request.channel,
+                grossAmount = java.math.BigDecimal.valueOf(request.amount),
+                currency = program.currency,
+                redemptionPointsDelta = redemptionPoints,
+                recognitionPointsDelta = recognitionPoints,
+                appliedPolicyId = earnedPoints.rule?.id,
+                appliedOfferIds = offerResult.offerIds,
+                payload = mapOf("eventType" to eventType, "tierMultiplier" to tierMultiplier, "offerMultiplier" to offerResult.multiplier)
+            )
+        )
+
         val transaction = TransactionEntity(
             id = 0,
             tenantId = request.tenantId,
@@ -250,6 +276,7 @@ class RewardEventController(
             status = "APPROVED",
             referenceId = referenceId.ifBlank { null },
             channel = request.channel?.ifBlank { "POS" } ?: "POS",
+            bitId = bit.id,
             createdAt = Instant.now()
         )
         val savedTransaction = transactionRepository.save(transaction)

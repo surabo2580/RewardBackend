@@ -6,6 +6,7 @@ import com.reward.platform.api.dto.PrivilegeClaimRequest
 import com.reward.platform.api.dto.PrivilegeClaimResponse
 import com.reward.platform.api.dto.RewardClaimRequest
 import com.reward.platform.api.dto.RewardClaimResponse
+import com.reward.platform.api.entity.BitType
 import com.reward.platform.api.entity.OfferApplicationEntity
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
@@ -21,6 +22,8 @@ import com.reward.platform.api.repository.TierRepository
 import com.reward.platform.api.repository.TransactionRepository
 import com.reward.platform.api.repository.WalletHistoryRepository
 import com.reward.platform.api.service.RedemptionLotService
+import com.reward.platform.api.service.BitCommand
+import com.reward.platform.api.service.BitService
 import com.reward.platform.api.service.OfferCsvImportService
 import com.reward.platform.api.service.OfferImportSummary
 import jakarta.validation.Valid
@@ -55,7 +58,8 @@ class OfferExecutionController(
     private val locationRepository: SponsorLocationRepository,
     private val tierRepository: TierRepository,
     private val transactionRepository: TransactionRepository,
-    private val walletHistoryRepository: WalletHistoryRepository
+    private val walletHistoryRepository: WalletHistoryRepository,
+    private val bitService: BitService
 ) {
     @PostMapping("/import-campaigns", consumes = ["multipart/form-data"])
     fun importCampaigns(@RequestAttribute("tenantId") tenantId: Long, @RequestParam programId: Long, @RequestParam file: MultipartFile): ResponseEntity<OfferImportSummary> =
@@ -81,7 +85,8 @@ class OfferExecutionController(
         }
         val voucher = offerVoucherRepository.findFirstByTenantIdAndOfferIdAndIsIssuedFalse(tenantId, offer.id)
         val updatedAccount = accountRepository.save(account.copy(availablePoints = account.availablePoints - offer.pointsRequired, redeemedPoints = account.redeemedPoints + offer.pointsRequired, updatedAt = Instant.now()))
-        val transaction = transactionRepository.save(TransactionEntity(tenantId = tenantId, programId = offer.programId, memberId = member.id, accountId = updatedAccount.id, eventType = "REWARD_CLAIM", transactionType = "REWARD_CLAIM", points = offer.pointsRequired, policyId = offer.id, referenceId = reference, channel = "MEMBER_CLAIM"))
+        val bit = bitService.record(BitCommand(tenantId = tenantId, memberId = member.id, bitType = BitType.REWARD_CLAIM, reference = reference, programId = offer.programId, bitSponsorId = offer.sponsorId, billingSponsorId = offer.billingSponsorId, channel = "MEMBER_CLAIM", redemptionPointsDelta = -offer.pointsRequired, appliedOfferIds = listOf(offer.id), description = "Reward claimed: ${offer.name}", payload = mapOf("offerCode" to offer.offerCode, "voucherCode" to voucher?.voucherCode)))
+        val transaction = transactionRepository.save(TransactionEntity(tenantId = tenantId, programId = offer.programId, memberId = member.id, accountId = updatedAccount.id, eventType = "REWARD_CLAIM", transactionType = "REWARD_CLAIM", points = offer.pointsRequired, policyId = offer.id, referenceId = reference, channel = "MEMBER_CLAIM", bitId = bit.id))
         voucher?.let { offerVoucherRepository.save(it.copy(isIssued = true, issuedToMemberId = member.id, issuedAt = Instant.now(), referenceId = reference, expiresAt = offer.endDate)) }
         walletHistoryRepository.save(WalletHistoryEntity(tenantId = tenantId, programId = offer.programId, memberId = member.id, accountId = updatedAccount.id, accountType = "REDEMPTION", entryType = "DEBIT", points = offer.pointsRequired, policyId = offer.id, description = "Reward claimed: ${offer.name}"))
         recordClaim(tenantId, offer, member.id, transaction.id)
@@ -101,7 +106,8 @@ class OfferExecutionController(
         val targetTier = offer.targetTierId?.let { tierRepository.findById(it).orElse(null)?.takeIf { tier -> tier.tenantId == tenantId && tier.programId == offer.programId } }
         val currentRank = tierRepository.findByTenantIdAndProgramIdOrderByRank(tenantId, offer.programId).firstOrNull { it.name == lockedMember.tier }?.rank ?: 0
         val updatedMember = if (targetTier != null && targetTier.rank > currentRank) memberRepository.save(lockedMember.copy(tier = targetTier.name)) else lockedMember
-        val transaction = transactionRepository.save(TransactionEntity(tenantId = tenantId, programId = offer.programId, memberId = member.id, accountId = 0, eventType = "PRIVILEGE", transactionType = "PRIVILEGE_CLAIM", policyId = offer.id, referenceId = reference, channel = "MEMBER_CLAIM"))
+        val bit = bitService.record(BitCommand(tenantId = tenantId, memberId = member.id, bitType = BitType.PRIVILEGE_CLAIM, reference = reference, programId = offer.programId, bitSponsorId = offer.sponsorId, billingSponsorId = offer.billingSponsorId, channel = "MEMBER_CLAIM", appliedOfferIds = listOf(offer.id), description = "Privilege activated: ${offer.benefitCode ?: offer.name}", payload = mapOf("offerCode" to offer.offerCode, "previousTier" to previousTier, "currentTier" to updatedMember.tier)))
+        val transaction = transactionRepository.save(TransactionEntity(tenantId = tenantId, programId = offer.programId, memberId = member.id, accountId = 0, eventType = "PRIVILEGE", transactionType = "PRIVILEGE_CLAIM", policyId = offer.id, referenceId = reference, channel = "MEMBER_CLAIM", bitId = bit.id))
         walletHistoryRepository.save(WalletHistoryEntity(tenantId = tenantId, programId = offer.programId, memberId = member.id, accountId = 0, accountType = "RECOGNITION", entryType = "CREDIT", points = 0, policyId = offer.id, description = "Privilege activated: ${offer.benefitCode ?: offer.name}"))
         recordClaim(tenantId, offer, member.id, transaction.id)
         return ResponseEntity.ok(PrivilegeClaimResponse(true, "SUCCESS", transaction.id, offer.name, previousTier, updatedMember.tier, offer.benefitCode, "Privilege activated"))
@@ -126,7 +132,8 @@ class OfferExecutionController(
         val rate = offer.discountValue ?: BigDecimal.ZERO
         val discount = if (offer.discountType == "PERCENTAGE") BigDecimal.valueOf(request.billAmount).multiply(rate).divide(BigDecimal(100), 2, RoundingMode.HALF_UP) else rate.min(BigDecimal.valueOf(request.billAmount))
         val net = BigDecimal.valueOf(request.billAmount).subtract(discount).max(BigDecimal.ZERO)
-        val transaction = transactionRepository.save(TransactionEntity(tenantId = request.tenantId, programId = offer.programId, sponsorId = sponsor?.id, locationId = request.locationId, memberId = member.id, accountId = 0, eventType = "DEAL", transactionType = "DEAL_DISCOUNT", amount = request.billAmount, discountAmount = discount, policyId = offer.id, referenceId = reference, channel = "POS"))
+        val bit = bitService.record(BitCommand(tenantId = request.tenantId, memberId = member.id, bitType = BitType.DEAL, reference = reference, programId = offer.programId, bitSponsorId = sponsor?.id, billingSponsorId = offer.billingSponsorId, locationId = request.locationId, channel = "POS", grossAmount = BigDecimal.valueOf(request.billAmount), discountAmount = discount, appliedOfferIds = listOf(offer.id), description = "Deal applied: ${offer.offerCode}"))
+        val transaction = transactionRepository.save(TransactionEntity(tenantId = request.tenantId, programId = offer.programId, sponsorId = sponsor?.id, locationId = request.locationId, memberId = member.id, accountId = 0, eventType = "DEAL", transactionType = "DEAL_DISCOUNT", amount = request.billAmount, discountAmount = discount, policyId = offer.id, referenceId = reference, channel = "POS", bitId = bit.id))
         recordClaim(request.tenantId, offer, member.id, transaction.id)
         return ResponseEntity.ok(DealRedemptionResponse(true, "APPLIED", transaction.id, offer.offerCode, request.billAmount, discount.toPlainString(), net.toPlainString(), "Deal applied"))
     }

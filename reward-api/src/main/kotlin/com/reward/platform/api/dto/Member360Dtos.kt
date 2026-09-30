@@ -184,6 +184,7 @@ data class MemberTransactionResponse(
     val channel: String,
     val policyScope: String?,
     val originalTransactionId: Long?,
+    val bitId: Long?,
     val createdAt: Instant
 ) {
     companion object {
@@ -205,6 +206,7 @@ data class MemberTransactionResponse(
             channel = entity.channel,
             policyScope = entity.policyScope,
             originalTransactionId = entity.originalTransactionId,
+            bitId = entity.bitId,
             createdAt = entity.createdAt
         )
     }

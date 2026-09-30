@@ -17,6 +17,7 @@ interface TransactionRepository : JpaRepository<TransactionEntity, Long> {
     ): TransactionEntity?
     fun findByTenantIdAndMemberIdOrderByCreatedAtDesc(tenantId: Long, memberId: Long): List<TransactionEntity>
     fun findByTenantIdAndBranchIdOrderByCreatedAtDesc(tenantId: Long, branchId: Long): List<TransactionEntity>
+    fun findByTenantIdAndBitIdOrderByCreatedAtAsc(tenantId: Long, bitId: Long): List<TransactionEntity>
     fun findByTenantIdAndSponsorIdAndTransactionTypeAndCreatedAtBetween(
         tenantId: Long,
         sponsorId: Long,

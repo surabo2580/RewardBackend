@@ -2,8 +2,11 @@ package com.reward.platform.api.controller
 
 import com.reward.platform.api.dto.RedemptionRequest
 import com.reward.platform.api.dto.RedemptionResponse
+import com.reward.platform.api.entity.BitType
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
+import com.reward.platform.api.service.BitCommand
+import com.reward.platform.api.service.BitService
 import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.MemberRepository
 import com.reward.platform.api.repository.ProgramRepository
@@ -33,7 +36,8 @@ class RedemptionController(
     private val sponsorRepository: SponsorRepository,
     private val locationRepository: SponsorLocationRepository,
     private val transactionRepository: TransactionRepository,
-    private val walletHistoryRepository: WalletHistoryRepository
+    private val walletHistoryRepository: WalletHistoryRepository,
+    private val bitService: BitService
 ) {
 
     @PostMapping("/redeem")
@@ -126,6 +130,22 @@ class RedemptionController(
                 updatedAt = Instant.now()
             )
         )
+        val bit = bitService.record(
+            BitCommand(
+                tenantId = request.tenantId,
+                memberId = member.id,
+                bitType = BitType.REDEMPTION,
+                reference = request.referenceId,
+                programId = request.programId,
+                bitSponsorId = sponsor.id,
+                locationId = request.locationId,
+                channel = request.channel,
+                discountAmount = discountAmount,
+                currency = program.currency,
+                redemptionPointsDelta = -request.pointsToRedeem,
+                description = "Redeemed ${request.pointsToRedeem} points for $discountAmount discount"
+            )
+        )
         val transaction = transactionRepository.save(
             TransactionEntity(
                 tenantId = request.tenantId,
@@ -141,7 +161,8 @@ class RedemptionController(
                 discountAmount = discountAmount,
                 status = "APPROVED",
                 referenceId = request.referenceId.trim(),
-                channel = request.channel?.ifBlank { "POS" } ?: "POS"
+                channel = request.channel?.ifBlank { "POS" } ?: "POS",
+                bitId = bit.id
             )
         )
         walletHistoryRepository.save(

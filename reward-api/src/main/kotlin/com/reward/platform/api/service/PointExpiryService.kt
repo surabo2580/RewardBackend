@@ -2,6 +2,7 @@ package com.reward.platform.api.service
 
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
+import com.reward.platform.api.entity.BitType
 import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.TenantRepository
 import com.reward.platform.api.repository.TransactionRepository
@@ -16,7 +17,8 @@ class PointExpiryService(
     private val tenantRepository: TenantRepository,
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
-    private val walletHistoryRepository: WalletHistoryRepository
+    private val walletHistoryRepository: WalletHistoryRepository,
+    private val bitService: BitService
 ) {
     @Scheduled(cron = "0 0 2 * * *", zone = "UTC")
     @Transactional
@@ -55,6 +57,19 @@ class PointExpiryService(
             availablePoints = account.availablePoints - pointsToExpire,
             updatedAt = now
         ))
+        val expiryReference = "EXPIRY-$tenantId-$memberId-$now"
+        val bit = bitService.record(
+            BitCommand(
+                tenantId = tenantId,
+                memberId = memberId,
+                bitType = BitType.EXPIRATION,
+                reference = expiryReference,
+                channel = "SCHEDULED_JOB",
+                redemptionPointsDelta = -pointsToExpire,
+                description = "Expired $pointsToExpire redemption points",
+                interactionAt = now
+            )
+        )
         val transaction = transactionRepository.save(TransactionEntity(
             tenantId = tenantId,
             memberId = memberId,
@@ -63,7 +78,9 @@ class PointExpiryService(
             transactionType = "EXPIRE",
             points = pointsToExpire,
             status = "APPROVED",
+            referenceId = expiryReference,
             channel = "SCHEDULED_JOB",
+            bitId = bit.id,
             createdAt = now
         ))
         walletHistoryRepository.save(WalletHistoryEntity(

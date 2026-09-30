@@ -2,8 +2,11 @@ package com.reward.platform.api.controller
 
 import com.reward.platform.api.dto.ReversalRequest
 import com.reward.platform.api.dto.ReversalResponse
+import com.reward.platform.api.entity.BitType
 import com.reward.platform.api.entity.TransactionEntity
 import com.reward.platform.api.entity.WalletHistoryEntity
+import com.reward.platform.api.service.BitCommand
+import com.reward.platform.api.service.BitService
 import com.reward.platform.api.repository.AccountRepository
 import com.reward.platform.api.repository.MemberRepository
 import com.reward.platform.api.repository.TransactionRepository
@@ -28,7 +31,8 @@ class ReversalController(
     private val accountRepository: AccountRepository,
     private val memberRepository: MemberRepository,
     private val transactionRepository: TransactionRepository,
-    private val walletHistoryRepository: WalletHistoryRepository
+    private val walletHistoryRepository: WalletHistoryRepository,
+    private val bitService: BitService
 ) {
 
     @PostMapping("/reverse")
@@ -81,6 +85,29 @@ class ReversalController(
             availablePoints = recognitionAccount.availablePoints - recognitionPoints,
             updatedAt = Instant.now()
         ))
+        val reason = request.reason.trim()
+        val reversedAmount = proportionalPoints(original.amount, request.reversalPercentage)
+        val bit = bitService.record(
+            BitCommand(
+                tenantId = request.tenantId,
+                memberId = member.id,
+                bitType = BitType.REVERSAL,
+                reference = reversalReference,
+                programId = original.programId,
+                bitSponsorId = original.sponsorId,
+                locationId = original.locationId,
+                branchId = original.branchId,
+                channel = request.channel,
+                grossAmount = BigDecimal.valueOf(reversedAmount),
+                redemptionPointsDelta = -redemptionPoints,
+                recognitionPointsDelta = -recognitionPoints,
+                appliedPolicyId = original.policyId,
+                originalBitId = original.bitId,
+                description = "Reversal of ${original.referenceId}: $reason",
+                payload = mapOf("originalReferenceId" to original.referenceId, "reversalPercentage" to request.reversalPercentage, "reason" to reason)
+            )
+        )
+        original.bitId?.let { bitService.markReversed(request.tenantId, it, request.reversalPercentage == 100) }
         val transaction = transactionRepository.save(
             TransactionEntity(
                 tenantId = request.tenantId,
@@ -92,7 +119,7 @@ class ReversalController(
                 accountId = updatedRedemptionAccount.id,
                 eventType = "REVERSAL",
                 transactionType = "REVERSAL",
-                amount = proportionalPoints(original.amount, request.reversalPercentage),
+                amount = reversedAmount,
                 points = redemptionPoints,
                 recognitionPoints = recognitionPoints,
                 policyId = original.policyId,
@@ -100,10 +127,10 @@ class ReversalController(
                 status = "APPROVED",
                 referenceId = reversalReference,
                 originalTransactionId = original.id,
-                channel = request.channel?.ifBlank { "POS" } ?: "POS"
+                channel = request.channel?.ifBlank { "POS" } ?: "POS",
+                bitId = bit.id
             )
         )
-        val reason = request.reason.trim()
         walletHistoryRepository.save(WalletHistoryEntity(
             tenantId = request.tenantId, programId = original.programId, sponsorId = original.sponsorId,
             locationId = original.locationId, branchId = original.branchId, memberId = member.id,

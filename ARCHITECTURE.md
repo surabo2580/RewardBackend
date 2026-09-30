@@ -1,5 +1,7 @@
 # Reward Backend Architecture Document
 
+> **Current implementation note:** Sections 1–13 describe the original demo application under the root `src/` tree. The current tenant-scoped Benevo API is implemented in `reward-api/` with shared modules `reward-core`, `reward-engine`, `reward-events`, and `reward-reporting`. Use section 14 and the module source as the current reference for BIT behavior; the legacy wallet/event routes below are not the BIT API.
+
 ## 1. Overview
 
 This project is a Spring Boot-based backend service for a smart rewards system. It manages businesses, users, wallets, reward rules, and transaction events. The application currently follows a modular monolith architecture with a layered structure: controller -> service -> repository -> database.
@@ -436,7 +438,6 @@ There is no explicit security mechanism (JWT/Security filter, OAuth, RBAC) curre
 ## 13. Dependency and Tooling Notes
 
 ### 13.1 Build Tools
-
 - Gradle Kotlin DSL
 - Spring Boot plugin
 - Kotlin plugin for Spring
@@ -520,3 +521,39 @@ The project is a strong MVP foundation and is well-suited for internal demos and
 - `src/main/kotlin/com/smartReward/backend/model/*.kt`
 - `src/main/kotlin/com/smartReward/backend/repository/*.kt`
 - `src/main/resources/application.yml`
+
+## Current Benevo BIT Implementation
+
+### Responsibility and persistence
+
+`reward-api/src/main/kotlin/com/reward/platform/api/entity/BitEntity.kt` defines a BIT as a tenant-scoped member interaction. BITs are stored in `reward_bits`; point balances and point lots remain in `reward_accounts` and `reward_wallet_history`. A BIT may be linked to multiple ledger rows through `reward_transactions.bit_id`.
+
+`BitService.record(BitCommand)` is the shared writer. A supplied reference is trimmed and bounded; replay lookup and a unique database constraint use `(tenant_id, bit_reference, bit_type)`. When internal callers omit a reference, the service creates a UUID reference, so those calls do not gain replay protection unless they provide a stable key.
+
+### Categories and event types
+
+`bit_type` identifies the concrete interaction, such as `PURCHASE`, `DINING`, `HOTEL_STAY`, or `SURVEY`. `bit_category` classifies its action: `ACCRUAL`, `REDEMPTION`, `PRIVILEGE`, `DEAL`, `AVAILMENT`, `CANCELLATION`, `SERVICE`, `ENROLLMENT`, `PROFILE_UPDATE`, `TIER_CHANGE`, `EXPIRATION`, or `ENGAGEMENT`.
+
+Direct BIT ingestion uses an explicit allowlist for non-balance interactions. Purchases and balance-changing actions continue through their dedicated endpoints, which also update accounts and write transaction/point-lot records. This avoids accepting a caller-supplied BIT as an unverified balance mutation.
+
+### Processing and reversal flow
+
+The current purchase path is synchronous: `/api/events` validates tenant/member/program/sponsor/location, calculates policy/tier/offer points, updates accounts, then records a BIT and links the resulting `EARN` transaction by `bitId`; account, BIT, transaction, and point-lot writes are in the controller transaction. Thus the BIT is currently an audit record of the processed interaction, not an input object consumed by the rule engine. Failed requests that roll back do not leave a failed-BIT record.
+
+Redemption, reward/privilege claims, deal application, reversals, CS adjustments, tier changes, profile changes, bookings, enrollment, and point expiry also write BITs from their owning workflow. Reversal writes a new BIT linked to the original BIT and marks the original as fully or partially reversed. Expiry creates an `EXPIRATION` BIT and links its `EXPIRE` transaction.
+
+### API and UI
+
+- `POST /api/bits`: direct non-balance interaction intake; requires a nonblank `referenceId`, rejects future interaction timestamps, and validates supplied tenant/program/sponsor relationships.
+- `GET /api/bits`: tenant-scoped filtering and pagination.
+- `GET /api/bits/{id}`: BIT detail with linked ledger entries and reversals.
+- `GET /api/members/{id}/bits` and `/summary`: member activity and aggregate summary.
+- `GET /api/bits/types` and `/categories`: runtime catalogs.
+
+The frontend Activity Events page and Member 360 profile timeline consume these read endpoints. The frontend does not currently expose direct BIT creation.
+
+### Migration and known next step
+
+`manual_bit_category_migration.sql` reclassifies existing rows after deploying the matching enum update. `manual_bit_backfill_migration.sql` backfills historic enrollment/transaction BITs and links transactions; run it only after the application has created the relevant tables/columns. These scripts are manual PostgreSQL operations and are not run automatically by Hibernate.
+
+The current design does not yet persist failed intake attempts, run fraud decisions, dispatch an outbox, or execute BIT ingestion asynchronously. Moving all processing to a durable `RECEIVED` → validation/risk → rule execution → `PROCESSED` lifecycle requires a separate processing boundary and failure-state contract; it should not be implemented by merely moving the existing `record()` call earlier inside the same transaction.
