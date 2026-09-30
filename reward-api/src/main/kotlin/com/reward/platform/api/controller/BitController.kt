@@ -61,8 +61,25 @@ class BitController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<BitPageResponse> = ResponseEntity.ok(
-        bitQueryService.list(tenantId, BitFilter(memberId, type ?: bitType, category, sponsorId, status, source, pointsAction, from, to), page, size)
+        bitQueryService.list(
+            tenantId,
+            BitFilter(
+                memberId = memberId,
+                bitType = blankToNull(type ?: bitType),
+                category = blankToNull(category),
+                sponsorId = sponsorId,
+                status = blankToNull(status),
+                source = blankToNull(source),
+                pointsAction = blankToNull(pointsAction),
+                from = from,
+                to = to
+            ),
+            page,
+            size
+        )
     )
+
+    private fun blankToNull(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
 
     @GetMapping("/bits/{bitId}")
     fun detail(
