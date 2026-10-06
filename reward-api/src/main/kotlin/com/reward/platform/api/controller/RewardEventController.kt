@@ -22,6 +22,7 @@ import com.reward.platform.api.repository.SponsorLocationRepository
 import com.reward.platform.api.service.RewardPolicyResolver
 import com.reward.platform.api.service.BitCommand
 import com.reward.platform.api.service.BitService
+import com.reward.platform.api.service.BranchSponsorService
 import com.reward.platform.api.service.OfferEvaluationService
 import com.reward.platform.api.service.PointExpiryPolicyService
 import com.reward.platform.api.service.TierEvaluationService
@@ -56,7 +57,8 @@ class RewardEventController(
     private val pointExpiryPolicyService: PointExpiryPolicyService,
     private val rewardPolicyResolver: RewardPolicyResolver,
     private val tierEvaluationService: TierEvaluationService,
-    private val bitService: BitService
+    private val bitService: BitService,
+    private val branchSponsorService: BranchSponsorService
 ) {
     companion object {
         private const val DEFAULT_BRANCH_CODE = "DEFAULT_MAIN"
@@ -159,12 +161,27 @@ class RewardEventController(
                 )
         }
 
+        val interactionSponsor = if (branchSponsorService.isOutletBranch(branch)) {
+            branchSponsorService.ensureOutletSponsor(request.tenantId, request.programId, branch)
+        } else {
+            sponsor
+        }
+        val interactionLocation = if (interactionSponsor.id != sponsor.id) {
+            locationRepository.findByTenantIdAndSponsorIdAndLocationCode(
+                request.tenantId,
+                interactionSponsor.id,
+                DEFAULT_LOCATION_CODE
+            ) ?: location
+        } else {
+            location
+        }
+
         val eventType = request.eventType.uppercase()
         val earnedPoints = rewardPolicyResolver.resolveEarnPoints(
             tenantId = request.tenantId,
             programId = request.programId,
-            sponsorId = sponsor.id,
-            locationId = location.id,
+            sponsorId = interactionSponsor.id,
+            locationId = interactionLocation.id,
             eventType = eventType,
             amount = request.amount
         )
@@ -174,8 +191,8 @@ class RewardEventController(
                 tenantId = request.tenantId,
                 programId = request.programId,
                 memberId = member.id,
-                sponsorId = sponsor.id,
-                locationId = location.id,
+                sponsorId = interactionSponsor.id,
+                locationId = interactionLocation.id,
                 tierRank = tierEvaluationService.currentRank(member, request.programId),
                 amount = request.amount
             )
@@ -240,9 +257,9 @@ class RewardEventController(
                 bitType = bitService.bitTypeForEvent(eventType, request.amount),
                 reference = referenceId,
                 programId = request.programId,
-                bitSponsorId = sponsor.id,
-                billingSponsorId = appliedOffers.firstNotNullOfOrNull { it.billingSponsorId },
-                locationId = location.id,
+                bitSponsorId = interactionSponsor.id,
+                billingSponsorId = appliedOffers.firstNotNullOfOrNull { it.billingSponsorId } ?: sponsor.id,
+                locationId = interactionLocation.id,
                 branchId = branch.id,
                 channel = request.channel,
                 grossAmount = java.math.BigDecimal.valueOf(request.amount),
@@ -259,9 +276,9 @@ class RewardEventController(
             id = 0,
             tenantId = request.tenantId,
             programId = request.programId,
-            sponsorId = sponsor.id,
-            locationId = location?.id,
-            branchId = branch?.id,
+            sponsorId = interactionSponsor.id,
+            locationId = interactionLocation.id,
+            branchId = branch.id,
             memberId = member.id,
             accountId = updatedRedemptionAccount.id,
             eventType = eventType,
@@ -299,9 +316,9 @@ class RewardEventController(
             id = 0,
             tenantId = request.tenantId,
             programId = request.programId,
-            sponsorId = sponsor.id,
-            locationId = location?.id,
-            branchId = branch?.id,
+            sponsorId = interactionSponsor.id,
+            locationId = interactionLocation.id,
+            branchId = branch.id,
             memberId = member.id,
             accountId = updatedRedemptionAccount.id,
             accountType = "REDEMPTION",
@@ -320,8 +337,8 @@ class RewardEventController(
             WalletHistoryEntity(
                 tenantId = request.tenantId,
                 programId = request.programId,
-                sponsorId = sponsor.id,
-                locationId = location.id,
+                sponsorId = interactionSponsor.id,
+                locationId = interactionLocation.id,
                 branchId = branch.id,
                 memberId = member.id,
                 accountId = updatedRecognitionAccount.id,

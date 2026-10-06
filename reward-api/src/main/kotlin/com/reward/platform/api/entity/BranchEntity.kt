@@ -26,6 +26,9 @@ data class BranchEntity(
 
     val parentBranchId: Long? = null,
 
+    /** CHILD sponsor representing this outlet on BIT rows and transactions. */
+    val sponsorId: Long? = null,
+
     @Column(nullable = false)
     val code: String = "",
 

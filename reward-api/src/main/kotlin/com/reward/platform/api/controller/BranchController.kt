@@ -4,6 +4,8 @@ import com.reward.platform.api.dto.BranchCreateRequest
 import com.reward.platform.api.dto.BranchResponse
 import com.reward.platform.api.entity.BranchEntity
 import com.reward.platform.api.repository.BranchRepository
+import com.reward.platform.api.repository.ProgramRepository
+import com.reward.platform.api.service.BranchSponsorService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CrossOrigin
@@ -19,7 +21,9 @@ import org.springframework.web.bind.annotation.RequestAttribute
 @RestController
 @RequestMapping("/api/branches")
 class BranchController(
-    private val branchRepository: BranchRepository
+    private val branchRepository: BranchRepository,
+    private val programRepository: ProgramRepository,
+    private val branchSponsorService: BranchSponsorService
 ) {
 
     @PostMapping
@@ -37,15 +41,23 @@ class BranchController(
                 "Parent branch does not belong to tenant"
             }
         }
-        val branch = BranchEntity(
-            tenantId = request.tenantId,
-            parentBranchId = request.parentBranchId,
-            code = request.code,
-            name = request.name,
-            city = request.city,
-            status = request.status
+        val saved = branchRepository.save(
+            BranchEntity(
+                tenantId = request.tenantId,
+                parentBranchId = request.parentBranchId,
+                code = request.code,
+                name = request.name,
+                city = request.city,
+                status = request.status
+            )
         )
-        return ResponseEntity.ok(BranchResponse.from(branchRepository.save(branch)))
+        val programId = programRepository.findByTenantIdOrderByCreatedAtDesc(request.tenantId).firstOrNull()?.id
+        if (programId != null && branchSponsorService.isOutletBranch(saved)) {
+            branchSponsorService.ensureOutletSponsor(request.tenantId, programId, saved)
+        }
+        return ResponseEntity.ok(
+            BranchResponse.from(branchRepository.findById(saved.id).orElse(saved))
+        )
     }
 
     @GetMapping
